@@ -1740,7 +1740,7 @@ class Game {
       look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-wave1-glider-bgm-a";
+    this.debugBuild = "2026-03-14-mobile-layout-b";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -2084,7 +2084,7 @@ class Game {
 
     if (this.isTouchDevice) {
       ui.overlay.classList.add("hidden");
-      ui.objective.textContent = "터치 조이스틱으로 이동하고 LOOK 패드로 시점을 조절하세요.";
+      ui.objective.textContent = "Move with the joystick and drag the right side of the screen to look around.";
       return;
     }
 

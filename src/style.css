@@ -372,6 +372,9 @@ body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  width: var(--app-width);
+  max-width: var(--app-width);
+  overflow: hidden;
   pointer-events: none;
   z-index: 4;
 }
@@ -952,6 +955,7 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
   padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
     max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   gap: 18px;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -960,11 +964,12 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
   display: flex;
   align-items: flex-end;
   gap: 14px;
+  min-width: 0;
 }
 
 .mobile-look-actions {
   margin-left: auto;
-  flex: 1;
+  flex: 0 0 auto;
   justify-content: flex-end;
 }
 
@@ -1274,11 +1279,29 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
   .mobile-controls {
     padding-bottom: max(18px, env(safe-area-inset-bottom));
   }
+
+  .look-pad {
+    display: none;
+  }
+
+  .mobile-look-actions {
+    gap: 10px;
+  }
 }
 
 @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
   .minimap-card {
-    width: min(30vw, 112px);
+    width: min(20vw, 82px);
+    padding: 6px;
+    border-radius: 14px;
+  }
+
+  .minimap-head {
+    display: none;
+  }
+
+  .minimap-canvas {
+    border-radius: 10px;
   }
 
   .overlay-panel {
@@ -1289,6 +1312,94 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
 
   .overlay-actions {
     margin-top: auto;
+  }
+
+  .hud {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .hud-top,
+  .hud-bottom {
+    gap: 8px;
+  }
+
+  .objective {
+    max-width: min(74vw, 420px);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .player-vitals,
+  .boss-hud {
+    width: min(56vw, 220px);
+    padding: 10px 12px;
+  }
+
+  .status-panel {
+    width: min(58vw, 220px);
+    padding: 12px;
+  }
+
+  .ammo-panel {
+    min-width: min(44vw, 168px);
+    padding: 12px;
+  }
+
+  .ammo-main strong {
+    font-size: clamp(28px, 8vw, 36px);
+  }
+
+  .weapon-slots {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-controls {
+    gap: 10px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .mobile-joystick,
+  .mobile-look-actions {
+    gap: 10px;
+  }
+
+  .touch-pad {
+    width: min(30vw, 128px);
+    height: min(30vw, 128px);
+  }
+
+  .touch-ring {
+    width: 84px;
+    height: 84px;
+  }
+
+  .touch-knob {
+    width: 50px;
+    height: 50px;
+  }
+
+  .mobile-button.primary-circle {
+    width: 74px;
+    min-width: 74px;
+    height: 74px;
+    min-height: 74px;
+    font-size: 12px;
+  }
+
+  .mobile-button.compact {
+    min-width: 56px;
+    min-height: 38px;
+    padding: 7px 8px;
+    font-size: 10px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (max-width: 480px) {
+  .minimap-card {
+    display: none;
   }
 }
 
