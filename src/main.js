@@ -3887,10 +3887,11 @@ class Game {
     this.effects.length = 0;
 
     this.player.velocity.set(0, 0, 0);
-    const safeSpawn = this.findSafePlayerSpawn();
-    this.playerObject.position.copy(safeSpawn.position);
+    const spawnPoint = new THREE.Vector3(8.4, CONFIG.playerHeight, 16.4);
+    spawnPoint.y = this.getGroundHeightAt(spawnPoint, CONFIG.playerHeight);
+    this.playerObject.position.copy(spawnPoint);
     this.resolveCircleCollisions(this.playerObject.position, CONFIG.playerRadius);
-    this.lookAngles.yaw = safeSpawn.yaw;
+    this.lookAngles.yaw = Math.PI;
     this.lookAngles.pitch = 0;
     this.resetTouchLookState();
     this.viewRecoil.pitch = 0;
@@ -3973,7 +3974,7 @@ class Game {
       const raycaster = new THREE.Raycaster(anchorWorld, direction, 0, distance);
       const hits = raycaster.intersectObjects(this.cameraCollisionMeshes, false);
       if (hits.length > 0) {
-        resolvedWorld = anchorWorld.clone().addScaledVector(direction, Math.max(2.2, hits[0].distance - 0.24));
+        resolvedWorld = anchorWorld.clone().addScaledVector(direction, Math.max(0.9, hits[0].distance - 0.24));
       }
     }
 
@@ -5068,8 +5069,6 @@ class Game {
   }
 
   updateMovement(dt) {
-    const previousPosition = this.playerObject.position.clone();
-    const wasOnGround = this.player.onGround;
     const inputX =
       ((this.keys.KeyD || this.keys.ArrowRight) ? 1 : 0) -
       ((this.keys.KeyA || this.keys.ArrowLeft) ? 1 : 0) +
@@ -5140,24 +5139,6 @@ class Game {
       this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y)) - CONFIG.playerHeight,
     );
     this.resolveCircleCollisions(next, CONFIG.playerRadius, null, allowedTopHeight);
-
-    const travelSq =
-      (next.x - previousPosition.x) * (next.x - previousPosition.x) +
-      (next.z - previousPosition.z) * (next.z - previousPosition.z);
-    if (input.lengthSq() > 0.08 && wasOnGround && travelSq < 0.0003) {
-      this.player.stuckTime = Math.min(this.player.stuckTime + dt, 0.3);
-      if (this.player.stuckTime > 0.08) {
-        const recovery = this.findNearbyRecoveryPosition(previousPosition, desired.lengthSq() > 0.01 ? desired : forward);
-        if (recovery) {
-          next.copy(recovery);
-          this.player.velocity.x *= 0.35;
-          this.player.velocity.z *= 0.35;
-          this.player.stuckTime = 0;
-        }
-      }
-    } else {
-      this.player.stuckTime = 0;
-    }
 
     const groundY = this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y));
     if (next.y <= groundY + 0.08) {
