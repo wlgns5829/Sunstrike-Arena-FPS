@@ -1791,7 +1791,7 @@ class Game {
     this.playerObject.rotation.y = wrapAngle(this.lookAngles.yaw - this.viewRecoil.yaw);
     const pitchObject = this.cameraPitchPivot || this.camera.parent || this.camera;
     pitchObject.rotation.x = clamp(this.lookAngles.pitch - this.viewRecoil.pitch, -1.08, 1.08);
-    this.camera.rotation.z = this.viewRecoil.roll;
+    this.camera.rotation.set(0, 0, this.viewRecoil.roll * 0.45);
   }
 
   startOrResume() {
@@ -4372,6 +4372,7 @@ class Game {
 
   snapThirdPersonCamera() {
     this.camera.position.set(CONFIG.thirdPersonShoulder, CONFIG.thirdPersonHeight, CONFIG.thirdPersonDistance);
+    this.camera.rotation.set(0, 0, 0);
   }
 
   updateThirdPersonCamera(dt) {
