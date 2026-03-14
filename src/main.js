@@ -9,14 +9,14 @@ const CONFIG = {
   playerHeight: 1.74,
   playerRadius: 0.58,
   gravity: 26,
-  jumpVelocity: 10.8,
+  jumpVelocity: 11.4,
   walkSpeed: 8.4,
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
-  touchLookSensitivity: 0.0019,
-  touchLookDeadzone: 0.4,
-  stepAssistHeight: 0.92,
+  touchLookSensitivity: 0.0031,
+  touchLookDeadzone: 0.12,
+  stepAssistHeight: 1.08,
   vaultBoost: 7.2,
   thirdPersonDistance: 6.8,
   thirdPersonHeight: 0.36,
@@ -1648,10 +1648,10 @@ class Game {
     };
     this.mobileInput = {
       move: { active: false, id: null, x: 0, y: 0 },
-      look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
+      look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-terrain-height-a";
+    this.debugBuild = "2026-03-14-mobile-look-hill-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1930,6 +1930,7 @@ class Game {
   resetTouchLookState() {
     this.mobileInput.look.active = false;
     this.mobileInput.look.id = null;
+    this.mobileInput.look.source = null;
     this.mobileInput.look.lastX = 0;
     this.mobileInput.look.lastY = 0;
     this.mobileInput.look.dx = 0;
@@ -1942,6 +1943,9 @@ class Game {
     }
     if (ui.lookPad && this.mobileInput.look.id !== null && ui.lookPad.hasPointerCapture?.(this.mobileInput.look.id)) {
       ui.lookPad.releasePointerCapture(this.mobileInput.look.id);
+    }
+    if (this.canvas && this.mobileInput.look.id !== null && this.canvas.hasPointerCapture?.(this.mobileInput.look.id)) {
+      this.canvas.releasePointerCapture(this.mobileInput.look.id);
     }
 
     this.mobileInput.move.active = false;
@@ -2070,18 +2074,22 @@ class Game {
     ui.movePad.addEventListener("pointerup", clearMove);
     ui.movePad.addEventListener("pointercancel", clearMove);
 
-    ui.lookPad.addEventListener("pointerdown", (event) => {
+    const beginLook = (event, captureTarget) => {
+      if (!this.isGameplayActive()) {
+        return;
+      }
       event.preventDefault();
       this.audio.unlock();
       this.resetTouchLookState();
       this.mobileInput.look.active = true;
       this.mobileInput.look.id = event.pointerId;
+      this.mobileInput.look.source = captureTarget || null;
       this.mobileInput.look.lastX = event.clientX;
       this.mobileInput.look.lastY = event.clientY;
-      ui.lookPad.setPointerCapture(event.pointerId);
-    });
+      captureTarget?.setPointerCapture?.(event.pointerId);
+    };
 
-    ui.lookPad.addEventListener("pointermove", (event) => {
+    const updateLook = (event) => {
       if (!this.mobileInput.look.active || this.mobileInput.look.id !== event.pointerId) {
         return;
       }
@@ -2089,20 +2097,32 @@ class Game {
       this.mobileInput.look.dy += event.clientY - this.mobileInput.look.lastY;
       this.mobileInput.look.lastX = event.clientX;
       this.mobileInput.look.lastY = event.clientY;
-    });
+    };
 
     const clearLook = (event) => {
       if (this.mobileInput.look.id !== event.pointerId) {
         return;
       }
-      this.mobileInput.look.active = false;
-      this.mobileInput.look.id = null;
-      this.mobileInput.look.dx = 0;
-      this.mobileInput.look.dy = 0;
+      const captureTarget = this.mobileInput.look.source;
+      if (captureTarget?.hasPointerCapture?.(event.pointerId)) {
+        captureTarget.releasePointerCapture(event.pointerId);
+      }
+      this.resetTouchLookState();
     };
 
+    ui.lookPad.addEventListener("pointerdown", (event) => {
+      beginLook(event, ui.lookPad);
+    });
+    ui.lookPad.addEventListener("pointermove", updateLook);
     ui.lookPad.addEventListener("pointerup", clearLook);
     ui.lookPad.addEventListener("pointercancel", clearLook);
+
+    this.canvas.addEventListener("pointerdown", (event) => {
+      beginLook(event, this.canvas);
+    });
+    this.canvas.addEventListener("pointermove", updateLook);
+    this.canvas.addEventListener("pointerup", clearLook);
+    this.canvas.addEventListener("pointercancel", clearLook);
 
     const bindHold = (element, onValue) => {
       element.addEventListener("pointerdown", (event) => {
@@ -2972,7 +2992,7 @@ class Game {
       material,
     });
     pad.material = material;
-    this.addWalkSurfaceRect(x, z, Math.max(0.24, w - 0.12), Math.max(0.24, d - 0.12), height);
+    this.addWalkSurfaceRect(x, z, Math.max(0.24, w - 0.04), Math.max(0.24, d - 0.04), height);
 
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(w + 0.18, 0.12, d + 0.18),
@@ -3138,7 +3158,7 @@ class Game {
       material: this.worldMaterials.platform,
     });
     deck.material = this.worldMaterials.platform;
-    this.addWalkSurfaceRect(x, z, deckWidth - 0.1, deckDepth - 0.1, deckHeight);
+    this.addWalkSurfaceRect(x, z, deckWidth - 0.02, deckDepth - 0.02, deckHeight);
 
     const cap = new THREE.Mesh(
       new THREE.BoxGeometry(deckWidth + 0.18, 0.12, deckDepth + 0.18),
@@ -3175,7 +3195,7 @@ class Game {
         material: this.worldMaterials.warmWall,
       });
       step.material = this.worldMaterials.warmWall;
-      this.addWalkSurfaceRect(stepX, z, stepWidth - 0.06, deckDepth - 0.26, height);
+      this.addWalkSurfaceRect(stepX, z, stepWidth - 0.02, deckDepth - 0.1, height);
     }
 
     const railX = side === "east" ? x - deckWidth * 0.5 - 0.08 : x + deckWidth * 0.5 + 0.08;
@@ -3215,8 +3235,8 @@ class Game {
       this.addWalkSurfaceRect(
         stepX,
         stepZ,
-        (horizontal ? segmentLength : width) - 0.08,
-        (horizontal ? width : segmentLength) - 0.08,
+        (horizontal ? segmentLength : width) - 0.02,
+        (horizontal ? width : segmentLength) - 0.02,
         height,
       );
     }
@@ -3599,7 +3619,7 @@ class Game {
       material: this.worldMaterials.planter,
     });
     body.material = this.worldMaterials.planter;
-    this.addWalkSurfaceRect(x, z, Math.max(0.28, w - 0.14), Math.max(0.28, d - 0.14), h);
+    this.addWalkSurfaceRect(x, z, Math.max(0.28, w - 0.06), Math.max(0.28, d - 0.06), h);
 
     const topTrim = new THREE.Mesh(
       new THREE.BoxGeometry(w + 0.1, 0.12, d + 0.1),
@@ -3654,7 +3674,7 @@ class Game {
       material: this.worldMaterials.warmWall,
     });
     body.material = this.worldMaterials.warmWall;
-    this.addWalkSurfaceRect(x, z, bodyW - 0.54, bodyD - 0.54, bodyH);
+    this.addWalkSurfaceRect(x, z, bodyW - 0.22, bodyD - 0.22, bodyH);
 
     const roof = new THREE.Mesh(
       new THREE.BoxGeometry(bodyW * 0.88, 0.18, bodyD * 0.88),
@@ -4996,13 +5016,14 @@ class Game {
   getGroundHeightAt(position, currentEyeY = this.playerObject.position.y) {
     let highestOffset = 0;
     const currentOffset = currentEyeY - CONFIG.playerHeight;
+    const surfaceMargin = 0.08;
 
     for (const surface of this.walkSurfaces) {
       if (
-        position.x < surface.minX ||
-        position.x > surface.maxX ||
-        position.z < surface.minZ ||
-        position.z > surface.maxZ
+        position.x < surface.minX - surfaceMargin ||
+        position.x > surface.maxX + surfaceMargin ||
+        position.z < surface.minZ - surfaceMargin ||
+        position.z > surface.maxZ + surfaceMargin
       ) {
         continue;
       }
@@ -6462,8 +6483,8 @@ class Game {
       return;
     }
 
-    const dx = clamp(look.dx, -42, 42);
-    const dy = clamp(look.dy, -42, 42);
+    const dx = clamp(look.dx, -96, 96);
+    const dy = clamp(look.dy, -96, 96);
     if (Math.abs(dx) < CONFIG.touchLookDeadzone && Math.abs(dy) < CONFIG.touchLookDeadzone) {
       look.dx = 0;
       look.dy = 0;
@@ -6472,7 +6493,7 @@ class Game {
 
     this.lookAngles.yaw = wrapAngle(this.lookAngles.yaw - dx * CONFIG.touchLookSensitivity);
     this.lookAngles.pitch = clamp(
-      this.lookAngles.pitch - dy * CONFIG.touchLookSensitivity * 0.72,
+      this.lookAngles.pitch - dy * CONFIG.touchLookSensitivity * 0.84,
       -1.08,
       1.08,
     );
