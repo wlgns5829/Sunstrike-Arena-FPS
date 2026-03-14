@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -1420,9 +1419,11 @@ class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = this.lowSpecMode ? THREE.BasicShadowMap : THREE.PCFShadowMap;
 
-    this.controls = new PointerLockControls(this.camera, document.body);
-    this.controls.pointerSpeed = 0.82;
-    this.playerObject = this.controls.getObject();
+    this.controls = this.createDesktopControls();
+    this.playerObject = new THREE.Group();
+    this.cameraPitchPivot = new THREE.Group();
+    this.cameraPitchPivot.add(this.camera);
+    this.playerObject.add(this.cameraPitchPivot);
     this.scene.add(this.playerObject);
 
     this.composer = null;
@@ -1661,6 +1662,26 @@ class Game {
     this.setActiveWeapon(this.activeWeaponId === "rifle" ? "lance" : "rifle");
   }
 
+  createDesktopControls() {
+    const controls = new EventTarget();
+    controls.isLocked = false;
+    controls.lock = () => {
+      if (this.isTouchDevice) {
+        return;
+      }
+      const target = this.canvas;
+      if (target.requestPointerLock) {
+        target.requestPointerLock();
+      }
+    };
+    controls.unlock = () => {
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    };
+    return controls;
+  }
+
   throwGrenade() {
     if (!this.isGameplayActive() || this.gameOver) {
       return;
@@ -1719,12 +1740,14 @@ class Game {
 
   syncLookAnglesFromView() {
     this.lookAngles.yaw = wrapAngle(this.playerObject.rotation.y + this.viewRecoil.yaw);
-    this.lookAngles.pitch = clamp(this.camera.rotation.x + this.viewRecoil.pitch, -1.08, 1.08);
+    const pitchObject = this.cameraPitchPivot || this.camera.parent || this.camera;
+    this.lookAngles.pitch = clamp(pitchObject.rotation.x + this.viewRecoil.pitch, -1.08, 1.08);
   }
 
   applyViewRotation() {
     this.playerObject.rotation.y = wrapAngle(this.lookAngles.yaw - this.viewRecoil.yaw);
-    this.camera.rotation.x = clamp(this.lookAngles.pitch - this.viewRecoil.pitch, -1.08, 1.08);
+    const pitchObject = this.cameraPitchPivot || this.camera.parent || this.camera;
+    pitchObject.rotation.x = clamp(this.lookAngles.pitch - this.viewRecoil.pitch, -1.08, 1.08);
     this.camera.rotation.z = this.viewRecoil.roll;
   }
 
@@ -1908,8 +1931,30 @@ class Game {
       window.visualViewport.addEventListener("scroll", handleResize);
     }
 
+    document.addEventListener("pointerlockchange", () => {
+      if (this.isTouchDevice) {
+        return;
+      }
+      const locked = document.pointerLockElement === this.canvas;
+      if (this.controls.isLocked === locked) {
+        return;
+      }
+      this.controls.isLocked = locked;
+      this.controls.dispatchEvent(new Event(locked ? "lock" : "unlock"));
+    });
+    document.addEventListener("mousemove", (event) => {
+      if (this.isTouchDevice || !this.controls.isLocked) {
+        return;
+      }
+      this.lookAngles.yaw = wrapAngle(this.lookAngles.yaw - event.movementX * 0.00215);
+      this.lookAngles.pitch = clamp(this.lookAngles.pitch - event.movementY * 0.00165, -1.08, 1.08);
+    });
+
     document.addEventListener("keydown", (event) => {
       this.keys[event.code] = true;
+      if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
+        event.preventDefault();
+      }
       if (event.code === "KeyR") {
         this.startReload();
       }
@@ -1935,6 +1980,9 @@ class Game {
 
     document.addEventListener("keyup", (event) => {
       this.keys[event.code] = false;
+      if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
+        event.preventDefault();
+      }
     });
 
     document.addEventListener("mousedown", (event) => {
@@ -2579,6 +2627,24 @@ class Game {
     this.addSolarCanopy(28, 24, -Math.PI * 0.75);
     this.addPergola(0, -29, 0);
     this.addPergola(0, 29, Math.PI);
+    this.addObservationDeck(0, -43, 0);
+    this.addObservationDeck(0, 43, Math.PI);
+    this.addObservationDeck(-43, 0, Math.PI / 2);
+    this.addObservationDeck(43, 0, -Math.PI / 2);
+    this.addCrystalGarden(-33, -33, 0x72fff0);
+    this.addCrystalGarden(33, -33, 0xffd884);
+    this.addCrystalGarden(-33, 33, 0xffd884);
+    this.addCrystalGarden(33, 33, 0x72fff0);
+    this.addFloatingHalo(18, 12.6, 0x72fff0, 0.32);
+    this.addFloatingHalo(26, 14.2, 0xffd884, -0.24);
+    this.addPlanterBox(-22, -18, 5.8, 2.2);
+    this.addPlanterBox(22, -18, 5.8, 2.2);
+    this.addPlanterBox(-22, 18, 5.8, 2.2);
+    this.addPlanterBox(22, 18, 5.8, 2.2);
+    this.addPlanterBox(-18, -22, 2.2, 5.8);
+    this.addPlanterBox(18, -22, 2.2, 5.8);
+    this.addPlanterBox(-18, 22, 2.2, 5.8);
+    this.addPlanterBox(18, 22, 2.2, 5.8);
 
     this.addFloorStripe(0, 0, 22, 0.9, 0x86f2ff);
     this.addFloorStripe(0, 0, 0.9, 22, 0x86f2ff);
@@ -3852,6 +3918,18 @@ class Game {
     opticLens.position.set(0, 0.34, -0.3);
     const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.08), safetyOrangeMaterial);
     frontSight.position.set(0.02, 0.22, -1.32);
+    this.playerRifleLaser = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.007, 0.01, 7.8, 6),
+      new THREE.MeshBasicMaterial({
+        color: 0xff3048,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+      }),
+    );
+    this.playerRifleLaser.rotation.x = Math.PI / 2;
+    this.playerRifleLaser.position.set(0.02, -0.06, -5.44);
+    this.playerRifleLaser.renderOrder = 4;
     const slideWingLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.28), safetyOrangeMaterial);
     slideWingLeft.position.set(0.12, 0.18, -0.54);
     const slideWingRight = slideWingLeft.clone();
@@ -3902,6 +3980,7 @@ class Game {
       opticBase,
       opticLens,
       frontSight,
+      this.playerRifleLaser,
       slideWingLeft,
       slideWingRight,
       ejectionPort,
@@ -4318,6 +4397,30 @@ class Game {
       10,
       dt,
     );
+    this.playerLeftArmPivot.position.x = THREE.MathUtils.damp(
+      this.playerLeftArmPivot.position.x,
+      0.38 + reloadReach * 0.08,
+      10,
+      dt,
+    );
+    this.playerLeftArmPivot.position.y = THREE.MathUtils.damp(
+      this.playerLeftArmPivot.position.y,
+      1.58 - reloadReach * 0.04,
+      10,
+      dt,
+    );
+    this.playerRightArmPivot.position.x = THREE.MathUtils.damp(
+      this.playerRightArmPivot.position.x,
+      -0.38 + reloadReach * 0.02,
+      10,
+      dt,
+    );
+    this.playerRightArmPivot.position.y = THREE.MathUtils.damp(
+      this.playerRightArmPivot.position.y,
+      1.58 - reloadReach * 0.02,
+      10,
+      dt,
+    );
 
     this.playerLeftLegPivot.rotation.x = legSwing;
     this.playerRightLegPivot.rotation.x = -legSwing;
@@ -4396,10 +4499,23 @@ class Game {
       );
     }
     if (this.playerShotgunPump) {
-      this.playerShotgunPump.position.z = -0.76 + (isLance ? 0 : this.weaponRecoil * 0.16);
+      this.playerShotgunPump.position.z = -0.76 + (isLance ? 0 : this.weaponRecoil * 0.24);
+      this.playerShotgunPump.position.y = 0.16 - (isLance ? 0 : this.weaponRecoil * 0.03);
+      this.playerShotgunPump.rotation.x = isLance ? 0 : -this.weaponRecoil * 0.08;
     }
     if (this.playerLancePump) {
       this.playerLancePump.position.z = -0.72 + (isLance ? this.weaponRecoil * 0.2 : 0);
+    }
+    if (this.playerRifleLaser) {
+      this.playerRifleLaser.visible = !isLance;
+      this.playerRifleLaser.material.opacity = !isLance
+        ? (this.aimDownSights ? 0.38 : 0.24) * (1 - reloadReach * 0.82)
+        : 0;
+      this.playerRifleLaser.scale.set(
+        this.aimDownSights ? 0.92 : 1,
+        1 + this.weaponRecoil * 0.08,
+        this.aimDownSights ? 1.08 : 1,
+      );
     }
     if (this.playerCannonCoil) {
       this.playerCannonCoil.rotation.z += dt * 4.2;
@@ -5889,10 +6005,6 @@ class Game {
 
     if (!this.isGameplayActive()) {
       return;
-    }
-
-    if (!this.isTouchDevice && this.controls.isLocked) {
-      this.syncLookAnglesFromView();
     }
 
     this.updateTouchLook();
