@@ -1485,7 +1485,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-movefix-d";
+    this.debugBuild = "2026-03-14-movefix-e";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1791,7 +1791,8 @@ class Game {
     this.playerObject.rotation.y = wrapAngle(this.lookAngles.yaw - this.viewRecoil.yaw);
     const pitchObject = this.cameraPitchPivot || this.camera.parent || this.camera;
     pitchObject.rotation.x = clamp(this.lookAngles.pitch - this.viewRecoil.pitch, -1.08, 1.08);
-    this.camera.rotation.set(0, 0, this.viewRecoil.roll * 0.45);
+    this.camera.up.set(0, 1, 0);
+    this.camera.quaternion.identity();
   }
 
   startOrResume() {
@@ -2489,22 +2490,22 @@ class Game {
     this.createSpawnPad(new THREE.Vector3(0, 0.12, -31.5));
     this.createSpawnPad(new THREE.Vector3(0, 0.12, 31.5));
 
-    this.addPalmTree(-30, -6, 1.18);
-    this.addPalmTree(-30, 6, 1.08);
-    this.addPalmTree(30, -6, 1.18);
-    this.addPalmTree(30, 6, 1.08);
-    this.addPalmTree(-6, -30, 1.08);
-    this.addPalmTree(6, -30, 1.08);
-    this.addPalmTree(-6, 30, 1.08);
-    this.addPalmTree(6, 30, 1.08);
+    this.addSolarCanopy(-29, -4, Math.PI / 2);
+    this.addSolarCanopy(-29, 9, Math.PI / 2);
+    this.addSolarCanopy(29, -9, -Math.PI / 2);
+    this.addSolarCanopy(29, 4, -Math.PI / 2);
+    this.addPergola(-4, -29, 0);
+    this.addPergola(4, 29, Math.PI);
+    this.addCrystalGarden(-30, -8, 0x72fff0);
+    this.addCrystalGarden(30, 8, 0xffd884);
 
-    this.addBanner(-34.8, 4.9, 0, Math.PI / 2, 0x72fff0);
-    this.addBanner(34.8, 4.9, 0, -Math.PI / 2, 0xffd884);
-    this.addBanner(0, 4.9, -34.8, 0, 0x72fff0);
-    this.addBanner(0, 4.9, 34.8, Math.PI, 0xffd884);
+    this.addHeroBillboard(-34.8, 6.6, 0, Math.PI / 2, 0x72fff0, "SOLAR");
+    this.addHeroBillboard(34.8, 6.6, 0, -Math.PI / 2, 0xffd884, "BASTION");
+    this.addHeroBillboard(0, 6.6, -34.8, 0, 0x72fff0, "ATRIUM");
+    this.addHeroBillboard(0, 6.6, 34.8, Math.PI, 0xffd884, "SKYRIDGE");
 
     this.addWallDressings();
-    this.addOpenFestivalArena();
+    this.addSunspireBastionArena();
 
     this.addMountains();
     this.addCloud(-36, 20, -48, 5.8);
@@ -2765,6 +2766,102 @@ class Game {
     );
     glow.position.set(x, h + 0.16, z);
     this.scene.add(glow);
+  }
+
+  addRaisedPad(x, z, w, d, height, accent, material = this.worldMaterials.platform) {
+    const pad = this.addCollidableBox({
+      x,
+      y: height * 0.5,
+      z,
+      w,
+      h: height,
+      d,
+      material,
+    });
+    pad.material = material;
+    this.addWalkSurfaceRect(x, z, Math.max(0.24, w - 0.12), Math.max(0.24, d - 0.12), height);
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(w + 0.18, 0.12, d + 0.18),
+      this.worldMaterials.trimMetal,
+    );
+    cap.position.set(x, height + 0.08, z);
+    cap.castShadow = true;
+    cap.receiveShadow = true;
+    this.scene.add(cap);
+
+    const inlay = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.max(0.28, w - 0.58), 0.06, Math.max(0.28, d - 0.58)),
+      new THREE.MeshStandardMaterial({
+        color: accent,
+        emissive: accent,
+        emissiveIntensity: 0.4,
+        roughness: 0.18,
+        metalness: 0.46,
+      }),
+    );
+    inlay.position.set(x, height + 0.15, z);
+    inlay.receiveShadow = true;
+    this.scene.add(inlay);
+  }
+
+  addSunspireBastionArena() {
+    this.addCentralReactor();
+    this.addFloatingHalo(31, 10.8, 0x72fff0, 0.18);
+    this.addFloatingHalo(23, 13.6, 0xffd884, -0.12);
+    this.addObservationDeck(-43, -15, Math.PI / 2);
+    this.addObservationDeck(43, 15, -Math.PI / 2);
+    this.addNeonGateway(-31, -31, Math.PI / 4, 0x72fff0);
+    this.addNeonGateway(31, 31, -Math.PI * 0.75, 0xffd884);
+    this.addHeroBillboard(-40, 10.6, -16, Math.PI / 4, 0x72fff0, "SUNSPIRE");
+    this.addHeroBillboard(40, 10.6, 16, -Math.PI * 0.75, 0xffd884, "BASTION");
+
+    this.addRaisedPad(0, 0, 18.4, 18.4, 0.42, 0x86f2ff);
+    this.addRaisedPad(0, -15.2, 6.2, 10.8, 0.42, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(0, 15.2, 6.2, 10.8, 0.42, 0x72fff0, this.worldMaterials.platform);
+    this.addRaisedPad(-15.2, 0, 10.8, 6.2, 0.42, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(15.2, 0, 10.8, 6.2, 0.42, 0x72fff0, this.worldMaterials.platform);
+
+    this.addRaisedPad(-23.5, -18.2, 8.2, 6.4, 0.42, 0x72fff0);
+    this.addRaisedPad(23.5, 18.2, 8.2, 6.4, 0.42, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(-23.5, 18.2, 6.6, 8.2, 0.42, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(23.5, -18.2, 6.6, 8.2, 0.42, 0x72fff0);
+
+    this.addTransitCar(-24.5, 6.5, "z", 0x72fff0);
+    this.addTransitCar(24.5, -6.5, "z", 0xffd884);
+    this.addTransitCar(-8.2, 24.5, "x", 0xffd884);
+    this.addTransitCar(8.2, -24.5, "x", 0x72fff0);
+
+    this.addCoverNode(-8.8, -8.8, 3.2, 1.9, 1.5, 0x72fff0);
+    this.addCoverNode(8.8, -8.8, 3.2, 1.9, 1.5, 0xffd884);
+    this.addCoverNode(-8.8, 8.8, 3.2, 1.9, 1.5, 0xffd884);
+    this.addCoverNode(8.8, 8.8, 3.2, 1.9, 1.5, 0x72fff0);
+    this.addCoverNode(-20.5, -2.5, 4.4, 1.9, 1.62, 0x72fff0);
+    this.addCoverNode(20.5, 2.5, 4.4, 1.9, 1.62, 0xffd884);
+    this.addCoverNode(-2.5, 20.5, 1.9, 4.4, 1.62, 0xffd884);
+    this.addCoverNode(2.5, -20.5, 1.9, 4.4, 1.62, 0x72fff0);
+
+    this.addPlanterBox(-14.5, -26.8, 8.4, 2.2);
+    this.addPlanterBox(14.5, 26.8, 8.4, 2.2);
+    this.addPlanterBox(-26.8, 14.5, 2.2, 8.4);
+    this.addPlanterBox(26.8, -14.5, 2.2, 8.4);
+
+    this.addVaultFence(-4.8, 24.8, 4.2, 0.34, 0.92, 0x72fff0);
+    this.addVaultFence(4.8, -24.8, 4.2, 0.34, 0.92, 0xffd884);
+    this.addVaultFence(-24.8, -4.8, 0.34, 4.2, 0.92, 0xffd884);
+    this.addVaultFence(24.8, 4.8, 0.34, 4.2, 0.92, 0x72fff0);
+
+    this.addStairTerrace(-10.2, 0, "east", 0x72fff0);
+    this.addStairTerrace(10.2, 0, "west", 0xffd884);
+    this.addStairTerrace(-27.8, 18.2, "east", 0x72fff0);
+    this.addStairTerrace(27.8, -18.2, "west", 0xffd884);
+
+    this.addFloorStripe(0, 0, 24, 0.82, 0x86f2ff);
+    this.addFloorStripe(0, 0, 0.82, 24, 0xffd884);
+    this.addFloorStripe(-16.2, -16.2, 7.2, 0.56, 0x72fff0);
+    this.addFloorStripe(16.2, 16.2, 7.2, 0.56, 0xffd884);
+    this.addFloorStripe(-16.2, 16.2, 0.56, 7.2, 0xffd884);
+    this.addFloorStripe(16.2, -16.2, 0.56, 7.2, 0x72fff0);
   }
 
   addArenaCoverRoutes() {
@@ -5527,6 +5624,10 @@ class Game {
 
   updateMenuCamera(dt) {
     this.menuOrbit += dt * 0.18;
+    this.playerObject.rotation.set(0, 0, 0);
+    this.cameraPitchPivot.rotation.set(0, 0, 0);
+    this.camera.up.set(0, 1, 0);
+    this.camera.quaternion.identity();
     this.camera.position.set(Math.cos(this.menuOrbit) * 30, 11.5 + Math.sin(this.menuOrbit * 0.7) * 1.2, Math.sin(this.menuOrbit) * 30);
     this.camera.lookAt(0, 3.6, 0);
   }
@@ -6042,7 +6143,7 @@ class Game {
       `desired x:${this.debugInfo.desiredX.toFixed(2)} z:${this.debugInfo.desiredZ.toFixed(2)}`,
       `blocked:${this.debugInfo.blocked} fallback:${this.debugInfo.fallback} ground:${this.debugInfo.groundY.toFixed(2)}`,
       `look yaw:${this.lookAngles.yaw.toFixed(2)} pitch:${this.lookAngles.pitch.toFixed(2)} weapon:${this.activeWeaponId}`,
-      `map: open-festival-v3`,
+      `map: sunspire-bastion-v1`,
     ].join("\n");
   }
 
