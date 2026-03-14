@@ -15,22 +15,25 @@ const CONFIG = {
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
-  touchLookSensitivity: 0.0024,
+  touchLookSensitivity: 0.0019,
+  touchLookDeadzone: 0.4,
+  stepAssistHeight: 0.48,
+  vaultBoost: 5.6,
 };
 
 const ENEMY_TYPES = {
   skirmisher: {
     label: "Goblin Sneak",
     health: 74,
-    speed: 6.8,
+    speed: 7.2,
     radius: 0.62,
     hoverHeight: 0.02,
     eyeHeight: 1.12,
     preferredRange: 1.25,
     retreatRange: 0.45,
-    fireInterval: 0.95,
-    attackRange: 1.45,
-    damage: 10,
+    fireInterval: 0.82,
+    attackRange: 1.52,
+    damage: 12,
     score: 100,
     cores: 2,
     scale: 0.9,
@@ -47,15 +50,15 @@ const ENEMY_TYPES = {
   striker: {
     label: "Goblin Raider",
     health: 58,
-    speed: 8.4,
+    speed: 9.1,
     radius: 0.58,
     hoverHeight: 0.02,
     eyeHeight: 1.08,
     preferredRange: 1.15,
     retreatRange: 0.35,
-    fireInterval: 0.72,
-    attackRange: 1.4,
-    damage: 9,
+    fireInterval: 0.6,
+    attackRange: 1.48,
+    damage: 11,
     score: 125,
     cores: 3,
     scale: 0.84,
@@ -72,15 +75,15 @@ const ENEMY_TYPES = {
   bruiser: {
     label: "Goblin Brute",
     health: 166,
-    speed: 4.5,
+    speed: 4.9,
     radius: 0.92,
     hoverHeight: 0.03,
     eyeHeight: 1.42,
     preferredRange: 1.45,
     retreatRange: 0.4,
-    fireInterval: 1.4,
-    attackRange: 1.75,
-    damage: 16,
+    fireInterval: 1.18,
+    attackRange: 1.86,
+    damage: 19,
     score: 180,
     cores: 4,
     scale: 1.28,
@@ -126,21 +129,25 @@ const ENEMY_TYPES = {
 
 const WEAPON_DEFS = {
   rifle: {
-    label: "RANGER RIFLE",
-    magSize: 36,
-    fireInterval: 0.078,
-    reloadTime: 1.05,
-    damage: 34,
-    critDamage: 58,
-    crosshairBase: 8,
+    label: "RANGER SHOTGUN",
+    magSize: 8,
+    fireInterval: 0.66,
+    reloadTime: 1.18,
+    damage: 8,
+    critDamage: 11,
+    pelletCount: 9,
+    spread: 0.085,
+    effectiveRange: 11,
+    maxRange: 24,
+    crosshairBase: 13,
     explosive: false,
-    tracerColor: 0xfff6cc,
-    aimTracerColor: 0xbffaff,
-    fov: 68,
+    tracerColor: 0xffd6a0,
+    aimTracerColor: 0xffefca,
+    fov: 71,
     hipFov: 82,
-    accent: 0x46d7ff,
-    body: 0xeef8ff,
-    grip: 0xffd6a2,
+    accent: 0xffa55d,
+    body: 0xffefdc,
+    grip: 0x9b6f48,
   },
   lance: {
     label: "SIEGE CANNON",
@@ -257,6 +264,10 @@ function removeFromArray(list, item) {
   if (index >= 0) {
     list.splice(index, 1);
   }
+}
+
+function wrapAngle(value) {
+  return Math.atan2(Math.sin(value), Math.cos(value));
 }
 
 function makeGlowTexture(inner, outer) {
@@ -459,8 +470,9 @@ class AudioSystem {
       return;
     }
 
-    this.pulse({ frequency: 260, slideTo: 80, duration: 0.05, startGain: 0.18, type: "square" });
-    this.noise(0.045, 0.05);
+    this.pulse({ frequency: 170, slideTo: 58, duration: 0.09, startGain: 0.2, type: "sawtooth" });
+    this.pulse({ frequency: 520, slideTo: 180, duration: 0.05, startGain: 0.05, type: "triangle" });
+    this.noise(0.07, 0.06);
   }
 
   reload(weaponId = "rifle") {
@@ -1006,6 +1018,7 @@ class Enemy {
     }
 
     const playerPosition = this.game.playerObject.position;
+    const playerEye = this.game.getPlayerEyePosition();
     this.hoverTime += dt * (1.8 + this.type.scale * 0.25);
     this.recoil = THREE.MathUtils.damp(this.recoil, 0, 9, dt);
     this.hitFlash = THREE.MathUtils.damp(this.hitFlash, 0, 8, dt);
@@ -1013,19 +1026,20 @@ class Enemy {
     const toPlayer = playerPosition.clone().sub(this.group.position);
     toPlayer.y = 0;
     const distance = Math.max(0.0001, toPlayer.length());
+    const verticalGap = Math.abs(playerEye.y - this.getEyePosition().y);
     toPlayer.normalize();
     const canSeePlayer = this.hasLineOfSight();
     const strafe = new THREE.Vector3(-toPlayer.z, 0, toPlayer.x).multiplyScalar(Math.sin(this.hoverTime * 1.4 + this.type.scale) > 0 ? 1 : -1);
     const desired = new THREE.Vector3();
 
     if (this.type.melee) {
-      if (distance > this.type.attackRange * 0.78) {
+      if (distance > this.type.attackRange * 0.62) {
         desired.add(toPlayer);
       } else {
-        desired.addScaledVector(strafe, this.typeName === "striker" ? 0.5 : 0.24);
+        desired.addScaledVector(strafe, this.typeName === "striker" ? 0.65 : 0.3);
       }
       if (!canSeePlayer) {
-        desired.addScaledVector(toPlayer, 0.9);
+        desired.addScaledVector(toPlayer, 1.1);
       }
     } else {
       if (distance > this.type.preferredRange) {
@@ -1043,7 +1057,9 @@ class Enemy {
 
     let moveAmount = 0;
     if (desired.lengthSq() > 0.001) {
-      desired.normalize().multiplyScalar(this.type.speed * dt);
+      const pressureBoost = this.type.melee ? clamp((7.2 - distance) / 7.2, 0, 1) : 0;
+      const moveSpeed = this.type.speed * (1 + pressureBoost * 0.38 + (this.typeName === "striker" ? 0.12 : 0));
+      desired.normalize().multiplyScalar(moveSpeed * dt);
       const previous = this.group.position.clone();
       const next = this.group.position.clone().add(desired);
       this.game.resolveCircleCollisions(next, this.radius);
@@ -1123,13 +1139,13 @@ class Enemy {
 
     this.fireCooldown -= dt;
     if (this.type.melee) {
-      if (distance < this.type.attackRange && this.fireCooldown <= 0 && canSeePlayer) {
+      if (distance < this.type.attackRange && verticalGap < 1.18 && this.fireCooldown <= 0 && canSeePlayer) {
         this.performMeleeAttack();
       }
       return;
     }
 
-    if (distance < 22 && this.fireCooldown <= 0 && canSeePlayer) {
+    if (distance < 22 && verticalGap < 4.8 && this.fireCooldown <= 0 && canSeePlayer) {
       this.fire();
     }
   }
@@ -1230,8 +1246,9 @@ class Game {
     this.lowSpecMode = this.isTouchDevice || (navigator.deviceMemory && navigator.deviceMemory <= 4);
     this.useComposer = !this.lowSpecMode;
     this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
+    const { width: viewportWidth, height: viewportHeight } = this.updateViewportMetrics();
 
-    this.camera = new THREE.PerspectiveCamera(82, window.innerWidth / window.innerHeight, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(82, viewportWidth / viewportHeight, 0.1, 200);
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: !this.lowSpecMode,
@@ -1239,7 +1256,7 @@ class Game {
       powerPreference: "high-performance",
     });
     this.renderer.setPixelRatio(this.renderPixelRatio);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(viewportWidth, viewportHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = this.lowSpecMode ? 1 : 1.02;
@@ -1247,6 +1264,7 @@ class Game {
     this.renderer.shadowMap.type = this.lowSpecMode ? THREE.BasicShadowMap : THREE.PCFShadowMap;
 
     this.controls = new PointerLockControls(this.camera, document.body);
+    this.controls.pointerSpeed = 0.82;
     this.playerObject = this.controls.getObject();
     this.scene.add(this.playerObject);
 
@@ -1257,7 +1275,7 @@ class Game {
       this.composer.setPixelRatio(this.renderPixelRatio);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
       this.bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        new THREE.Vector2(viewportWidth, viewportHeight),
         0.08,
         0.12,
         1.08,
@@ -1279,6 +1297,7 @@ class Game {
     this.environmentRaycastMeshes = [];
     this.enemyRaycastMeshes = [];
     this.collisionVolumes = [];
+    this.walkSurfaces = [];
     this.enemies = [];
     this.projectiles = [];
     this.grenades = [];
@@ -1344,6 +1363,8 @@ class Game {
       shield: 50,
       maxShield: 50,
       moveBlend: 0,
+      groundHeight: CONFIG.playerHeight,
+      vaultCooldown: 0,
       lastDamageTime: -10,
       damagePulse: 0,
     };
@@ -1515,10 +1536,25 @@ class Game {
     return this.controls.isLocked;
   }
 
+  resetTouchLookState() {
+    this.mobileInput.look.active = false;
+    this.mobileInput.look.id = null;
+    this.mobileInput.look.lastX = 0;
+    this.mobileInput.look.lastY = 0;
+    this.mobileInput.look.dx = 0;
+    this.mobileInput.look.dy = 0;
+  }
+
+  syncLookAnglesFromView() {
+    this.lookAngles.yaw = wrapAngle(this.playerObject.rotation.y);
+    this.lookAngles.pitch = clamp(this.camera.rotation.x, -1.08, 1.08);
+  }
+
   startOrResume() {
     this.audio.unlock();
     this.mouseDown = false;
     this.aimDownSights = false;
+    this.resetTouchLookState();
     if (!this.started || this.gameOver) {
       this.resetRun();
     }
@@ -1535,6 +1571,7 @@ class Game {
   pauseGame() {
     this.mouseDown = false;
     this.aimDownSights = false;
+    this.resetTouchLookState();
 
     if (this.isTouchDevice) {
       if (!this.started) {
@@ -1607,6 +1644,7 @@ class Game {
     ui.lookPad.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       this.audio.unlock();
+      this.resetTouchLookState();
       this.mobileInput.look.active = true;
       this.mobileInput.look.id = event.pointerId;
       this.mobileInput.look.lastX = event.clientX;
@@ -1679,7 +1717,16 @@ class Game {
   }
 
   bindEvents() {
-    window.addEventListener("resize", () => this.onResize());
+    const handleResize = () => this.onResize();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", () => {
+      requestAnimationFrame(() => this.onResize());
+      setTimeout(() => this.onResize(), 120);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+      window.visualViewport.addEventListener("scroll", handleResize);
+    }
 
     document.addEventListener("keydown", (event) => {
       this.keys[event.code] = true;
@@ -1746,6 +1793,8 @@ class Game {
     this.controls.addEventListener("lock", () => {
       this.mouseDown = false;
       this.aimDownSights = false;
+      this.resetTouchLookState();
+      this.syncLookAnglesFromView();
       ui.overlay.classList.add("hidden");
       if (!this.started) {
         this.resetRun();
@@ -1756,6 +1805,8 @@ class Game {
     this.controls.addEventListener("unlock", () => {
       this.mouseDown = false;
       this.aimDownSights = false;
+      this.resetTouchLookState();
+      this.syncLookAnglesFromView();
 
       if (this.gameOver) {
         this.setOverlay(
@@ -1788,15 +1839,25 @@ class Game {
     ui.overlay.classList.remove("hidden");
   }
 
+  updateViewportMetrics() {
+    const viewport = window.visualViewport;
+    const width = Math.max(1, Math.round(viewport?.width || window.innerWidth || 1));
+    const height = Math.max(1, Math.round(viewport?.height || window.innerHeight || 1));
+    document.documentElement.style.setProperty("--app-width", `${width}px`);
+    document.documentElement.style.setProperty("--app-height", `${height}px`);
+    return { width, height };
+  }
+
   onResize() {
+    const { width, height } = this.updateViewportMetrics();
     this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(this.renderPixelRatio);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height);
     if (this.composer) {
       this.composer.setPixelRatio(this.renderPixelRatio);
-      this.composer.setSize(window.innerWidth, window.innerHeight);
+      this.composer.setSize(width, height);
     }
   }
 
@@ -2169,6 +2230,7 @@ class Game {
     this.addPeripheralArchitecture();
     this.addWallDressings();
     this.addArenaCoverRoutes();
+    this.addTraversalRoutes();
     this.addSkylineSetpieces();
     this.addArenaRoof();
 
@@ -2346,6 +2408,125 @@ class Game {
     for (const node of coverNodes) {
       this.addCoverNode(node.x, node.z, node.w, node.d, node.h, node.accent);
     }
+  }
+
+  addWalkSurfaceRect(x, z, w, d, height) {
+    this.walkSurfaces.push({
+      minX: x - w / 2,
+      maxX: x + w / 2,
+      minZ: z - d / 2,
+      maxZ: z + d / 2,
+      height,
+    });
+  }
+
+  addVaultFence(x, z, w, d, h, accent) {
+    const fence = this.addCollidableBox({
+      x,
+      y: h * 0.5,
+      z,
+      w,
+      h,
+      d,
+      material: this.worldMaterials.trimMetal.clone(),
+      vaultable: true,
+    });
+    fence.material.color.setHex(0xf9fbfc);
+    fence.material.emissive.setHex(accent);
+    fence.material.emissiveIntensity = 0.18;
+
+    const lightStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.max(w, 0.18), 0.06, Math.max(d, 0.18)),
+      new THREE.MeshStandardMaterial({
+        color: accent,
+        emissive: accent,
+        emissiveIntensity: 0.58,
+        roughness: 0.2,
+        metalness: 0.42,
+      }),
+    );
+    lightStrip.position.set(x, h + 0.05, z);
+    this.scene.add(lightStrip);
+  }
+
+  addStairTerrace(x, z, side, accent) {
+    const deckWidth = 4.2;
+    const deckDepth = 3.8;
+    const deckHeight = 1.44;
+    const steps = 4;
+    const stepWidth = 0.78;
+    const stepHeight = deckHeight / steps;
+
+    const deck = this.addCollidableBox({
+      x,
+      y: deckHeight * 0.5,
+      z,
+      w: deckWidth,
+      h: deckHeight,
+      d: deckDepth,
+      material: this.worldMaterials.platform,
+    });
+    deck.material = this.worldMaterials.platform;
+    this.addWalkSurfaceRect(x, z, deckWidth - 0.1, deckDepth - 0.1, deckHeight);
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(deckWidth + 0.18, 0.12, deckDepth + 0.18),
+      this.worldMaterials.trimMetal,
+    );
+    cap.position.set(x, deckHeight + 0.08, z);
+    cap.castShadow = true;
+    this.scene.add(cap);
+
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(deckWidth * 0.7, 0.08, 0.14),
+      new THREE.MeshStandardMaterial({
+        color: accent,
+        emissive: accent,
+        emissiveIntensity: 0.48,
+        roughness: 0.22,
+        metalness: 0.46,
+      }),
+    );
+    sign.position.set(x, 0.08, z);
+    this.scene.add(sign);
+
+    for (let i = 0; i < steps; i += 1) {
+      const height = stepHeight * (i + 1);
+      const offset = stepWidth * (steps - i - 0.5);
+      const stepX = side === "east" ? x + deckWidth * 0.5 + offset : x - deckWidth * 0.5 - offset;
+      const step = this.addCollidableBox({
+        x: stepX,
+        y: height * 0.5,
+        z,
+        w: stepWidth,
+        h: height,
+        d: deckDepth - 0.18,
+        material: this.worldMaterials.warmWall,
+      });
+      step.material = this.worldMaterials.warmWall;
+      this.addWalkSurfaceRect(stepX, z, stepWidth - 0.06, deckDepth - 0.26, height);
+    }
+
+    const railX = side === "east" ? x - deckWidth * 0.5 - 0.08 : x + deckWidth * 0.5 + 0.08;
+    for (const railZ of [-deckDepth * 0.5 + 0.28, deckDepth * 0.5 - 0.28]) {
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(0.14, 1, deckDepth + steps * stepWidth * 0.78),
+        this.worldMaterials.trimMetal,
+      );
+      rail.position.set(railX, 0.5, z + railZ * 0.12);
+      rail.castShadow = true;
+      this.scene.add(rail);
+    }
+  }
+
+  addTraversalRoutes() {
+    this.addStairTerrace(-17.2, 7.8, "east", 0x72fff0);
+    this.addStairTerrace(17.2, -7.8, "west", 0xffd884);
+
+    this.addVaultFence(-5.2, 5.4, 3.4, 0.34, 0.92, 0x72fff0);
+    this.addVaultFence(5.2, -5.4, 3.4, 0.34, 0.92, 0xffd884);
+    this.addVaultFence(-6.4, -4.2, 0.34, 3.2, 0.92, 0xffd884);
+    this.addVaultFence(6.4, 4.2, 0.34, 3.2, 0.92, 0x72fff0);
   }
 
   addSkylineSetpieces() {
@@ -3017,6 +3198,7 @@ class Game {
     emissive = 0x000000,
     emissiveIntensity = 0,
     collidable = true,
+    vaultable = false,
   }) {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
@@ -3034,13 +3216,20 @@ class Game {
     mesh.receiveShadow = true;
     this.scene.add(mesh);
     if (collidable) {
-      this.environmentRaycastMeshes.push(mesh);
-      this.collisionVolumes.push({
+      const collider = {
         minX: x - w / 2 - 0.02,
         maxX: x + w / 2 + 0.02,
         minZ: z - d / 2 - 0.02,
         maxZ: z + d / 2 + 0.02,
-      });
+        topY: y + h / 2,
+        height: h,
+        width: w,
+        depth: d,
+        vaultable,
+      };
+      this.environmentRaycastMeshes.push(mesh);
+      this.collisionVolumes.push(collider);
+      mesh.userData.collider = collider;
     }
     return mesh;
   }
@@ -3079,22 +3268,28 @@ class Game {
       grip: gripMaterial,
     };
 
-    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.24, 1.08), bodyMaterial);
-    receiver.position.set(0, 0, -0.18);
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.26, 1.1), bodyMaterial);
+    receiver.position.set(0, 0.02, -0.14);
 
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.11, 0.92), accentMaterial);
-    barrel.position.set(0.02, 0.03, -0.94);
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.13, 1.02), accentMaterial);
+    barrel.position.set(0.02, 0.05, -0.95);
 
-    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, 0.42), bodyMaterial);
-    shroud.position.set(0.02, 0.04, -0.62);
+    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.5), bodyMaterial);
+    shroud.position.set(0.02, 0.06, -0.56);
 
-    const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.24), gripMaterial);
-    magazine.position.set(-0.02, -0.25, -0.1);
-    magazine.rotation.x = 0.14;
+    const underTube = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.98), accentMaterial);
+    underTube.position.set(0.02, -0.06, -0.88);
 
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.4), accentMaterial);
-    stock.position.set(-0.04, 0.03, 0.48);
-    stock.rotation.y = -0.08;
+    const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.42), gripMaterial);
+    magazine.position.set(-0.16, -0.05, -0.2);
+    magazine.rotation.z = 0.12;
+
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.42), gripMaterial);
+    pump.position.set(0.02, -0.02, -0.84);
+
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.48), accentMaterial);
+    stock.position.set(-0.05, 0.02, 0.5);
+    stock.rotation.y = -0.1;
 
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.38, 0.16), gripMaterial);
     grip.position.set(0.04, -0.22, 0.26);
@@ -3108,7 +3303,7 @@ class Game {
     sightRing.rotation.y = Math.PI / 2;
 
     this.muzzle = new THREE.Object3D();
-    this.muzzle.position.set(0.02, 0.03, -1.38);
+    this.muzzle.position.set(0.02, 0.05, -1.44);
 
     this.muzzleFlash = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -3120,10 +3315,23 @@ class Game {
         blending: THREE.AdditiveBlending,
       }),
     );
-    this.muzzleFlash.position.set(0.02, 0.03, -1.34);
+    this.muzzleFlash.position.set(0.02, 0.05, -1.39);
     this.muzzleFlash.scale.set(0.45, 0.45, 1);
 
-    this.weaponPivot.add(receiver, barrel, shroud, magazine, stock, grip, sightBase, sightRing, this.muzzle, this.muzzleFlash);
+    this.weaponPivot.add(
+      receiver,
+      barrel,
+      shroud,
+      underTube,
+      magazine,
+      pump,
+      stock,
+      grip,
+      sightBase,
+      sightRing,
+      this.muzzle,
+      this.muzzleFlash,
+    );
     this.camera.add(this.weaponGroup);
 
     const handMaterial = new THREE.MeshStandardMaterial({
@@ -3167,12 +3375,15 @@ class Game {
     this.playerObject.position.set(0, CONFIG.playerHeight, 16);
     this.lookAngles.yaw = Math.PI;
     this.lookAngles.pitch = 0;
+    this.resetTouchLookState();
     this.playerObject.rotation.y = this.lookAngles.yaw;
     this.camera.rotation.x = 0;
     this.player.health = this.player.maxHealth;
     this.applyProgressionBonuses();
     this.player.shield = this.player.maxShield;
     this.player.onGround = true;
+    this.player.groundHeight = CONFIG.playerHeight;
+    this.player.vaultCooldown = 0;
     this.player.lastDamageTime = -10;
     this.player.damagePulse = 0;
     this.damageFeedback.flash = 0;
@@ -3201,8 +3412,80 @@ class Game {
     this.updateUI(true);
   }
 
-  resolveCircleCollisions(position, radius) {
+  getGroundHeightAt(position, currentEyeY = this.playerObject.position.y) {
+    let highestOffset = 0;
+    const currentOffset = currentEyeY - CONFIG.playerHeight;
+
+    for (const surface of this.walkSurfaces) {
+      if (
+        position.x < surface.minX ||
+        position.x > surface.maxX ||
+        position.z < surface.minZ ||
+        position.z > surface.maxZ
+      ) {
+        continue;
+      }
+
+      const stepUp = surface.height - currentOffset;
+      const canStepUp = this.player.onGround && stepUp <= CONFIG.stepAssistHeight;
+      const canLandFromAbove = currentEyeY >= CONFIG.playerHeight + surface.height - 0.24 && this.player.velocity.y <= 0.6;
+
+      if ((canStepUp || canLandFromAbove) && surface.height > highestOffset) {
+        highestOffset = surface.height;
+      }
+    }
+
+    return CONFIG.playerHeight + highestOffset;
+  }
+
+  tryVault(direction) {
+    if (!this.player.onGround || this.player.vaultCooldown > 0 || direction.lengthSq() < 0.12) {
+      return null;
+    }
+
+    const moveDir = direction.clone().normalize();
+    const probe = this.playerObject.position.clone().addScaledVector(moveDir, CONFIG.playerRadius + 0.7);
+
     for (const obstacle of this.collisionVolumes) {
+      if (
+        !obstacle.vaultable ||
+        probe.x < obstacle.minX - 0.15 ||
+        probe.x > obstacle.maxX + 0.15 ||
+        probe.z < obstacle.minZ - 0.15 ||
+        probe.z > obstacle.maxZ + 0.15
+      ) {
+        continue;
+      }
+
+      const target = this.playerObject.position.clone();
+      const clearance = CONFIG.playerRadius + 0.14;
+      if (Math.abs(moveDir.x) > Math.abs(moveDir.z)) {
+        target.x = moveDir.x > 0 ? obstacle.maxX + clearance : obstacle.minX - clearance;
+        target.z += moveDir.z * (obstacle.depth * 0.5 + 0.4);
+      } else {
+        target.z = moveDir.z > 0 ? obstacle.maxZ + clearance : obstacle.minZ - clearance;
+        target.x += moveDir.x * (obstacle.width * 0.5 + 0.4);
+      }
+
+      this.resolveCircleCollisions(target, CONFIG.playerRadius, obstacle, 0);
+      target.y = this.playerObject.position.y + clamp(obstacle.height * 0.42, 0.45, 0.72);
+      this.player.vaultCooldown = 0.42;
+      this.showAnnouncement("VAULT", 0.24, "#fff0b7");
+      return target;
+    }
+
+    return null;
+  }
+
+  resolveCircleCollisions(position, radius, ignoredVolume = null, allowedTopHeight = -Infinity) {
+    for (const obstacle of this.collisionVolumes) {
+      if (obstacle === ignoredVolume) {
+        continue;
+      }
+      if (allowedTopHeight >= obstacle.topY - 0.04) {
+        continue;
+      }
+
       const closestX = clamp(position.x, obstacle.minX, obstacle.maxX);
       const closestZ = clamp(position.z, obstacle.minZ, obstacle.maxZ);
       let dx = position.x - closestX;
@@ -3254,9 +3537,9 @@ class Game {
     this.wave += 1;
     this.spawnQueue = [];
     const isBossWave = this.wave >= 3 && this.wave % 3 === 0;
-    const totalEnemies = isBossWave ? Math.min(4 + this.wave, 11) : Math.min(6 + this.wave * 2, 18);
-    const bruiserCount = Math.max(0, Math.floor((this.wave - 1) / 2));
-    const strikerCount = Math.max(0, Math.floor(this.wave / 3));
+    const totalEnemies = isBossWave ? Math.min(6 + this.wave, 14) : Math.min(8 + this.wave * 2, 22);
+    const bruiserCount = Math.max(0, Math.floor(this.wave / 2));
+    const strikerCount = Math.max(1, Math.floor((this.wave + 1) / 2));
     const roster = [];
 
     if (isBossWave) {
@@ -3276,7 +3559,7 @@ class Game {
     roster.forEach((type, index) => {
       const pad = this.spawnPads[index % this.spawnPads.length];
       const jitter = new THREE.Vector3(rand(-1.2, 1.2), 0, rand(-1.2, 1.2));
-      const delay = type === "boss" ? 0.25 : (isBossWave ? 1.45 : 0.35) + index * 0.38;
+      const delay = type === "boss" ? 0.25 : (isBossWave ? 0.95 : 0.18) + index * (isBossWave ? 0.24 : 0.17);
       this.spawnQueue.push({
         type,
         delay,
@@ -3622,24 +3905,22 @@ class Game {
 
     this.fireCooldown = weapon.fireInterval;
     weaponState.ammo -= 1;
-    this.crosshairKick = this.activeWeaponId === "lance" ? 0.7 : 1;
-    this.weaponRecoil = this.activeWeaponId === "lance" ? 1.25 : 1;
-    this.weaponKick = this.activeWeaponId === "lance" ? 1.2 : 1;
+    this.crosshairKick = this.activeWeaponId === "lance" ? 0.7 : weapon.pelletCount ? 1.35 : 1;
+    this.weaponRecoil = this.activeWeaponId === "lance" ? 1.25 : weapon.pelletCount ? 1.18 : 1;
+    this.weaponKick = this.activeWeaponId === "lance" ? 1.2 : weapon.pelletCount ? 1.12 : 1;
     this.muzzleTimer = 0.06;
     this.audio.shot(this.activeWeaponId);
 
     const muzzleWorld = this.muzzle.getWorldPosition(new THREE.Vector3());
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-    raycaster.far = CONFIG.bulletRange;
-    const intersections = raycaster.intersectObjects(
-      [...this.enemyRaycastMeshes, ...this.environmentRaycastMeshes],
-      false,
-    );
+    const baseRaycaster = new THREE.Raycaster();
+    baseRaycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    baseRaycaster.far = weapon.maxRange || CONFIG.bulletRange;
+    const allTargets = [...this.enemyRaycastMeshes, ...this.environmentRaycastMeshes];
 
-    let hitPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(CONFIG.bulletRange));
+    let hitPoint = baseRaycaster.ray.origin.clone().add(baseRaycaster.ray.direction.clone().multiplyScalar(baseRaycaster.far));
     let hitEnemy = null;
     let crit = false;
+    const intersections = baseRaycaster.intersectObjects(allTargets, false);
 
     if (intersections.length > 0) {
       const hit = intersections[0];
@@ -3652,13 +3933,12 @@ class Game {
       }
     }
 
-    this.spawnTracer(
-      muzzleWorld,
-      hitPoint,
-      this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
-    );
-
     if (weapon.explosive) {
+      this.spawnTracer(
+        muzzleWorld,
+        hitPoint,
+        this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
+      );
       const directDamage = weapon.damage * this.damageMultiplier;
       if (hitEnemy) {
         hitEnemy.takeDamage(directDamage, hitPoint, false);
@@ -3667,10 +3947,79 @@ class Game {
       this.spawnExplosion(hitPoint, weapon.tracerColor, 22, 1.04);
       this.damageEnemiesInRadius(hitPoint, weapon.splashRadius, weapon.splashDamage * this.damageMultiplier, hitEnemy);
       this.audio.pulse({ frequency: 110, slideTo: 42, duration: 0.16, startGain: 0.08, type: "sawtooth" });
+    } else if (weapon.pelletCount) {
+      const enemyHits = new Map();
+      const visibleTracers = Math.min(4, weapon.pelletCount);
+
+      for (let i = 0; i < weapon.pelletCount; i += 1) {
+        const direction = baseRaycaster.ray.direction.clone();
+        const spread = (this.aimDownSights ? weapon.spread * 0.58 : weapon.spread) * (i === 0 ? 0.3 : 1);
+        const right = new THREE.Vector3().crossVectors(direction, UP);
+        if (right.lengthSq() < 0.0001) {
+          right.set(1, 0, 0);
+        } else {
+          right.normalize();
+        }
+        direction.addScaledVector(right, rand(-spread, spread));
+        direction.y += rand(-spread * 0.42, spread * 0.42);
+        direction.applyAxisAngle(UP, rand(-spread, spread) * 0.5);
+        direction.normalize();
+
+        const pelletRay = new THREE.Raycaster(baseRaycaster.ray.origin, direction, 0, weapon.maxRange);
+        const pelletHits = pelletRay.intersectObjects(allTargets, false);
+        let pelletPoint = pelletRay.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
+
+        if (pelletHits.length > 0) {
+          const pelletHit = pelletHits[0];
+          pelletPoint = pelletHit.point.clone();
+          if (pelletHit.object.userData.enemy) {
+            const enemy = pelletHit.object.userData.enemy;
+            const isCrit = Boolean(pelletHit.object.userData.crit);
+            const distanceToHit = pelletRay.ray.origin.distanceTo(pelletPoint);
+            const falloff = distanceToHit <= weapon.effectiveRange
+              ? 1
+              : clamp(
+                1 - (distanceToHit - weapon.effectiveRange) / Math.max(weapon.maxRange - weapon.effectiveRange, 0.001),
+                0.32,
+                1,
+              );
+            const pelletDamage = (isCrit ? weapon.critDamage : weapon.damage) * this.damageMultiplier * falloff;
+            const prev = enemyHits.get(enemy) || { damage: 0, crit: false, point: pelletPoint };
+            prev.damage += pelletDamage;
+            prev.crit = prev.crit || isCrit;
+            prev.point = pelletPoint;
+            enemyHits.set(enemy, prev);
+          } else if (i < 2) {
+            this.spawnImpact(pelletPoint, 0xfff6dd, 5, 3.8);
+          }
+        }
+
+        if (i < visibleTracers) {
+          this.spawnTracer(muzzleWorld, pelletPoint, this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor);
+        }
+      }
+
+      if (enemyHits.size > 0) {
+        for (const [enemy, data] of enemyHits.entries()) {
+          enemy.takeDamage(data.damage, data.point, data.crit);
+        }
+        this.hitmarkerTimer = 0.14;
+      }
     } else if (hitEnemy) {
+      this.spawnTracer(
+        muzzleWorld,
+        hitPoint,
+        this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
+      );
       const damage = (crit ? weapon.critDamage : weapon.damage) * this.damageMultiplier;
       hitEnemy.takeDamage(damage, hitPoint, crit);
       this.hitmarkerTimer = 0.14;
+    } else {
+      this.spawnTracer(
+        muzzleWorld,
+        hitPoint,
+        this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
+      );
     }
 
     if (weaponState.ammo <= 0) {
@@ -3732,7 +4081,16 @@ class Game {
     this.player.velocity.x = THREE.MathUtils.damp(this.player.velocity.x, desired.x, accel, dt);
     this.player.velocity.z = THREE.MathUtils.damp(this.player.velocity.z, desired.z, accel, dt);
 
-    if ((this.keys.Space || this.mobileInput.jumpQueued) && this.player.onGround) {
+    const jumpPressed = this.keys.Space || this.mobileInput.jumpQueued;
+    let vaultTarget = null;
+    if (jumpPressed) {
+      vaultTarget = this.tryVault(desired.lengthSq() > 0.04 ? desired : forward);
+    }
+
+    if (vaultTarget) {
+      this.player.velocity.y = Math.max(this.player.velocity.y, CONFIG.vaultBoost);
+      this.player.onGround = false;
+    } else if (jumpPressed && this.player.onGround) {
       this.player.velocity.y = CONFIG.jumpVelocity;
       this.player.onGround = false;
     }
@@ -3740,16 +4098,26 @@ class Game {
 
     this.player.velocity.y -= CONFIG.gravity * dt;
 
-    const next = this.playerObject.position.clone().addScaledVector(this.player.velocity, dt);
-    this.resolveCircleCollisions(next, CONFIG.playerRadius);
+    const next = vaultTarget
+      ? vaultTarget
+      : this.playerObject.position.clone().addScaledVector(this.player.velocity, dt);
+    const allowedTopHeight = Math.max(
+      0,
+      this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y)) - CONFIG.playerHeight,
+    );
+    this.resolveCircleCollisions(next, CONFIG.playerRadius, null, allowedTopHeight);
 
-    if (next.y <= CONFIG.playerHeight) {
-      next.y = CONFIG.playerHeight;
+    const groundY = this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y));
+    if (next.y <= groundY + 0.08) {
+      next.y = groundY;
       this.player.velocity.y = 0;
       this.player.onGround = true;
     } else {
       this.player.onGround = false;
     }
+
+    this.player.groundHeight = groundY;
+    this.player.vaultCooldown = Math.max(0, this.player.vaultCooldown - dt);
 
     this.playerObject.position.copy(next);
     const horizontalSpeed = new THREE.Vector2(this.player.velocity.x, this.player.velocity.z).length() / CONFIG.sprintSpeed;
@@ -3766,9 +4134,17 @@ class Game {
       return;
     }
 
-    this.lookAngles.yaw -= look.dx * CONFIG.touchLookSensitivity;
+    const dx = clamp(look.dx, -42, 42);
+    const dy = clamp(look.dy, -42, 42);
+    if (Math.abs(dx) < CONFIG.touchLookDeadzone && Math.abs(dy) < CONFIG.touchLookDeadzone) {
+      look.dx = 0;
+      look.dy = 0;
+      return;
+    }
+
+    this.lookAngles.yaw = wrapAngle(this.lookAngles.yaw - dx * CONFIG.touchLookSensitivity);
     this.lookAngles.pitch = clamp(
-      this.lookAngles.pitch - look.dy * CONFIG.touchLookSensitivity * 0.72,
+      this.lookAngles.pitch - dy * CONFIG.touchLookSensitivity * 0.72,
       -1.08,
       1.08,
     );
@@ -4022,7 +4398,7 @@ class Game {
     if (this.enemies.length === 0) {
       if (!this.waitingForNextWave) {
         this.waitingForNextWave = true;
-        this.intermission = 3.1;
+        this.intermission = 2.05;
         if (this.wave > 0) {
           this.audio.waveClear();
           this.showAnnouncement("WAVE CLEAR", 1.2, "#b6fff4");
@@ -4070,7 +4446,7 @@ class Game {
     }
 
     const intensity = clamp(
-      (this.enemies.length + this.spawnQueue.length * 0.28 + (this.bossEnemy ? 6 : 0)) / 14,
+      (this.enemies.length * 1.18 + this.spawnQueue.length * 0.34 + (this.bossEnemy ? 6 : 0)) / 12,
       0,
       1,
     );
@@ -4226,6 +4602,10 @@ class Game {
 
     if (!this.isGameplayActive()) {
       return;
+    }
+
+    if (!this.isTouchDevice && this.controls.isLocked) {
+      this.syncLookAnglesFromView();
     }
 
     this.updateTouchLook();
