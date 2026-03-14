@@ -20,95 +20,120 @@ const CONFIG = {
 
 const ENEMY_TYPES = {
   skirmisher: {
-    label: "Skirmisher",
-    health: 78,
-    speed: 5.9,
-    radius: 0.9,
-    hoverHeight: 1.7,
-    preferredRange: 10,
-    retreatRange: 5.5,
-    fireInterval: 1.1,
-    projectileSpeed: 24,
+    label: "Goblin Sneak",
+    health: 74,
+    speed: 6.8,
+    radius: 0.62,
+    hoverHeight: 0.02,
+    eyeHeight: 1.12,
+    preferredRange: 1.25,
+    retreatRange: 0.45,
+    fireInterval: 0.95,
+    attackRange: 1.45,
     damage: 10,
     score: 100,
     cores: 2,
-    scale: 1,
-    shellColor: 0xffffff,
-    trimColor: 0x8befff,
-    coreColor: 0x49e1ff,
-    critColor: 0xffd37a,
+    scale: 0.9,
+    skinColor: 0x79b85f,
+    shellColor: 0x79b85f,
+    clothColor: 0x7a5131,
+    armorColor: 0x5c4638,
+    trimColor: 0xd5b074,
+    coreColor: 0x9dff84,
+    weaponColor: 0x8f653e,
+    critColor: 0xffef9d,
+    melee: true,
   },
   striker: {
-    label: "Striker",
-    health: 54,
-    speed: 7.8,
-    radius: 0.76,
-    hoverHeight: 1.48,
-    preferredRange: 8.4,
-    retreatRange: 4.1,
-    fireInterval: 0.82,
-    projectileSpeed: 28,
-    damage: 8,
+    label: "Goblin Raider",
+    health: 58,
+    speed: 8.4,
+    radius: 0.58,
+    hoverHeight: 0.02,
+    eyeHeight: 1.08,
+    preferredRange: 1.15,
+    retreatRange: 0.35,
+    fireInterval: 0.72,
+    attackRange: 1.4,
+    damage: 9,
     score: 125,
     cores: 3,
-    scale: 0.86,
-    shellColor: 0xe8fdff,
-    trimColor: 0x9cffd9,
-    coreColor: 0x2effb0,
-    critColor: 0xffd37a,
+    scale: 0.84,
+    skinColor: 0x84c76a,
+    shellColor: 0x84c76a,
+    clothColor: 0x5d3d25,
+    armorColor: 0x433328,
+    trimColor: 0xe4c287,
+    coreColor: 0xc2ff7b,
+    weaponColor: 0x9a7147,
+    critColor: 0xfff2a9,
+    melee: true,
   },
   bruiser: {
-    label: "Bruiser",
-    health: 158,
-    speed: 4.15,
-    radius: 1.18,
-    hoverHeight: 2.05,
-    preferredRange: 12.5,
-    retreatRange: 6.5,
-    fireInterval: 1.6,
-    projectileSpeed: 20,
+    label: "Goblin Brute",
+    health: 166,
+    speed: 4.5,
+    radius: 0.92,
+    hoverHeight: 0.03,
+    eyeHeight: 1.42,
+    preferredRange: 1.45,
+    retreatRange: 0.4,
+    fireInterval: 1.4,
+    attackRange: 1.75,
     damage: 16,
     score: 180,
     cores: 4,
-    scale: 1.35,
-    shellColor: 0xe6f1ff,
-    trimColor: 0x79ffe6,
-    coreColor: 0x19d8c1,
-    critColor: 0xffb55c,
+    scale: 1.28,
+    skinColor: 0x6ba64d,
+    shellColor: 0x6ba64d,
+    clothColor: 0x6f4931,
+    armorColor: 0x4a3c35,
+    trimColor: 0xffc882,
+    coreColor: 0x8ce66c,
+    weaponColor: 0x7f6149,
+    critColor: 0xffd58a,
+    melee: true,
   },
   boss: {
-    label: "Aurora Overseer",
-    health: 1180,
-    speed: 3.45,
-    radius: 2.05,
-    hoverHeight: 4.2,
-    preferredRange: 15.5,
-    retreatRange: 8.5,
-    fireInterval: 1.18,
-    projectileSpeed: 22,
+    label: "Goblin Hex Shaman",
+    health: 1280,
+    speed: 3.35,
+    radius: 1.18,
+    hoverHeight: 0.06,
+    eyeHeight: 2.28,
+    preferredRange: 11.5,
+    retreatRange: 5.8,
+    fireInterval: 1.28,
+    projectileSpeed: 19,
     projectileCount: 3,
-    spread: 0.17,
+    spread: 0.19,
     damage: 14,
-    score: 1400,
+    score: 1550,
     cores: 18,
-    scale: 2.55,
-    shellColor: 0xf7fbff,
-    trimColor: 0xffc56d,
-    coreColor: 0x8afaff,
+    scale: 1.7,
+    skinColor: 0x88ba63,
+    shellColor: 0x88ba63,
+    clothColor: 0x5b346f,
+    armorColor: 0x3f294f,
+    trimColor: 0xffcb73,
+    coreColor: 0xc67dff,
+    weaponColor: 0x8e6a40,
     critColor: 0xfff0b2,
+    magic: true,
     boss: true,
   },
 };
 
 const WEAPON_DEFS = {
   rifle: {
-    label: "PHOTON RIFLE",
+    label: "RANGER RIFLE",
     magSize: 36,
     fireInterval: 0.078,
     reloadTime: 1.05,
     damage: 34,
     critDamage: 58,
     crosshairBase: 8,
+    explosive: false,
     tracerColor: 0xfff6cc,
     aimTracerColor: 0xbffaff,
     fov: 68,
@@ -118,21 +143,32 @@ const WEAPON_DEFS = {
     grip: 0xffd6a2,
   },
   lance: {
-    label: "SOLAR LANCE",
-    magSize: 12,
-    fireInterval: 0.24,
-    reloadTime: 1.42,
-    damage: 72,
-    critDamage: 122,
-    crosshairBase: 5,
-    tracerColor: 0xffd388,
-    aimTracerColor: 0xffefb0,
-    fov: 58,
+    label: "SIEGE CANNON",
+    magSize: 6,
+    fireInterval: 0.58,
+    reloadTime: 1.72,
+    damage: 48,
+    critDamage: 48,
+    splashDamage: 92,
+    splashRadius: 3.4,
+    crosshairBase: 6,
+    explosive: true,
+    tracerColor: 0xffb85e,
+    aimTracerColor: 0xffd89a,
+    fov: 60,
     hipFov: 82,
-    accent: 0xffc36f,
-    body: 0xfff6de,
-    grip: 0xffcda3,
+    accent: 0xff9851,
+    body: 0xffedcf,
+    grip: 0xcfa374,
   },
+};
+
+const GRENADE_CONFIG = {
+  max: 4,
+  cooldown: 0.52,
+  fuse: 1.35,
+  damage: 138,
+  radius: 4.2,
 };
 
 const PROGRESSION_KEY = "sunstrike-progress";
@@ -168,6 +204,7 @@ const ui = {
   reloadState: document.querySelector("#reload-state"),
   weaponSlotRifle: document.querySelector("#weapon-slot-rifle"),
   weaponSlotLance: document.querySelector("#weapon-slot-lance"),
+  grenadeCount: document.querySelector("#grenade-count"),
   combo: document.querySelector("#combo-value"),
   statusNote: document.querySelector("#status-note"),
   pauseButton: document.querySelector("#pause-button"),
@@ -200,6 +237,7 @@ const ui = {
   mobileJump: document.querySelector("#mobile-jump"),
   mobileReload: document.querySelector("#mobile-reload"),
   mobileSwap: document.querySelector("#mobile-swap"),
+  mobileGrenade: document.querySelector("#mobile-grenade"),
 };
 
 function clamp(value, min, max) {
@@ -318,15 +356,15 @@ class AudioSystem {
 
     const subOscA = this.context.createOscillator();
     subOscA.type = "sawtooth";
-    subOscA.frequency.value = midiToFrequency(33);
+    subOscA.frequency.value = midiToFrequency(45);
 
     const subOscB = this.context.createOscillator();
     subOscB.type = "triangle";
-    subOscB.frequency.value = midiToFrequency(45);
+    subOscB.frequency.value = midiToFrequency(57);
 
     const shimmerOsc = this.context.createOscillator();
     shimmerOsc.type = "square";
-    shimmerOsc.frequency.value = midiToFrequency(57);
+    shimmerOsc.frequency.value = midiToFrequency(69);
 
     subOscA.connect(subGain);
     subOscB.connect(subGain);
@@ -618,7 +656,7 @@ class AudioSystem {
     const paused = !state.started || state.gameOver || state.paused;
     const bpm = state.boss ? 142 : state.intensity > 0.72 ? 132 : state.intensity > 0.3 ? 122 : 110;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.002 : state.boss ? 0.24 : 0.13 + state.intensity * 0.11;
+    const targetGain = paused ? 0.006 : state.boss ? 0.28 : 0.15 + state.intensity * 0.12;
     const targetFilter = paused ? 1100 : state.boss ? 3000 : 1700 + state.intensity * 1400;
 
     this.music.stepDuration = stepDuration;
@@ -632,10 +670,10 @@ class AudioSystem {
     this.musicFilter.frequency.linearRampToValueAtTime(targetFilter, now + 0.3);
 
     if (this.musicDrone) {
-      const rootProgression = state.boss ? [33, 31, 36, 38] : [36, 33, 41, 38];
+      const rootProgression = state.boss ? [45, 43, 48, 50] : [45, 43, 50, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const droneBase = paused ? 0.0001 : state.boss ? 0.075 : 0.034 + state.intensity * 0.032;
-      const shimmerBase = paused ? 0.0001 : state.boss ? 0.03 : 0.01 + state.intensity * 0.016;
+      const droneBase = paused ? 0.0001 : state.boss ? 0.095 : 0.05 + state.intensity * 0.04;
+      const shimmerBase = paused ? 0.0001 : state.boss ? 0.04 : 0.018 + state.intensity * 0.02;
 
       this.musicDrone.subOscA.frequency.cancelScheduledValues(now);
       this.musicDrone.subOscA.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.4);
@@ -685,135 +723,242 @@ class Enemy {
     this.alive = true;
     this.recoil = 0;
     this.hitFlash = 0;
+    this.moveBlend = 0;
     this.hitMeshes = [];
     this.group = new THREE.Group();
     this.group.position.copy(spawnPosition);
-    this.group.position.y = this.type.hoverHeight;
+    this.group.position.y = 0;
     this.buildMesh();
     this.game.scene.add(this.group);
   }
 
   buildMesh() {
-    const { scale, shellColor, trimColor, coreColor, critColor } = this.type;
-    const shellMaterial = new THREE.MeshStandardMaterial({
-      color: shellColor,
+    const { scale, skinColor, clothColor, armorColor, trimColor, coreColor, weaponColor, critColor } = this.type;
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: skinColor,
+      roughness: 0.78,
+      metalness: 0.02,
+    });
+    const clothMaterial = new THREE.MeshStandardMaterial({
+      color: clothColor,
+      roughness: 0.88,
+      metalness: 0.02,
+    });
+    const armorMaterial = new THREE.MeshStandardMaterial({
+      color: armorColor,
       emissive: trimColor,
-      emissiveIntensity: 0.12,
-      roughness: 0.26,
-      metalness: 0.78,
+      emissiveIntensity: this.type.boss ? 0.12 : 0.05,
+      roughness: 0.46,
+      metalness: 0.34,
     });
     const trimMaterial = new THREE.MeshStandardMaterial({
-      color: 0xdff7ff,
+      color: trimColor,
       emissive: trimColor,
-      emissiveIntensity: 0.54,
-      roughness: 0.22,
-      metalness: 0.8,
+      emissiveIntensity: 0.18,
+      roughness: 0.34,
+      metalness: 0.18,
     });
-    const coreMaterial = new THREE.MeshStandardMaterial({
-      color: 0xe9fcff,
+    const weaponMaterial = new THREE.MeshStandardMaterial({
+      color: weaponColor,
+      roughness: 0.68,
+      metalness: 0.18,
+    });
+    const magicMaterial = new THREE.MeshStandardMaterial({
+      color: coreColor,
       emissive: coreColor,
-      emissiveIntensity: 1.2,
-      roughness: 0.08,
-      metalness: 0.56,
+      emissiveIntensity: this.type.boss ? 1.2 : 0.46,
+      roughness: 0.1,
+      metalness: 0.04,
     });
     const critMaterial = new THREE.MeshStandardMaterial({
-      color: 0xfff2d6,
+      color: critColor,
       emissive: critColor,
-      emissiveIntensity: 1.55,
+      emissiveIntensity: 1.15,
       roughness: 0.08,
-      metalness: 0.4,
+      metalness: 0.02,
     });
 
     this.bodyPivot = new THREE.Group();
+    this.bodyPivot.position.y = this.type.hoverHeight;
     this.group.add(this.bodyPivot);
 
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.52 * scale, 24, 24), coreMaterial);
-    const shellRing = new THREE.Mesh(new THREE.TorusGeometry(0.78 * scale, 0.16 * scale, 14, 30), shellMaterial);
-    shellRing.rotation.x = Math.PI / 2;
+    const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * scale, 0.28 * scale, 0.32 * scale, 10), clothMaterial);
+    pelvis.position.y = 0.58 * scale;
 
-    const topShell = new THREE.Mesh(
-      new THREE.SphereGeometry(0.82 * scale, 18, 18, 0, Math.PI * 2, 0, Math.PI * 0.48),
-      shellMaterial,
+    this.torso = new THREE.Mesh(new THREE.CylinderGeometry(0.35 * scale, 0.43 * scale, 0.92 * scale, 12), clothMaterial);
+    this.torso.position.y = 1.12 * scale;
+
+    this.chest = new THREE.Mesh(new THREE.SphereGeometry(0.46 * scale, 16, 16), armorMaterial);
+    this.chest.position.set(0, 1.26 * scale, 0.04 * scale);
+    this.chest.scale.set(1.04, 0.9, 0.84);
+
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.26 * scale, 0.05 * scale, 8, 18), trimMaterial);
+    belt.position.y = 0.88 * scale;
+    belt.rotation.x = Math.PI / 2;
+
+    this.head = new THREE.Mesh(new THREE.SphereGeometry((this.type.boss ? 0.33 : 0.28) * scale, 18, 18), skinMaterial);
+    this.head.position.set(0, 1.78 * scale, 0.02 * scale);
+    this.head.scale.set(0.92, 1.04, 0.9);
+
+    const snout = new THREE.Mesh(new THREE.BoxGeometry(0.14 * scale, 0.12 * scale, 0.22 * scale), skinMaterial);
+    snout.position.set(0, 1.7 * scale, 0.22 * scale);
+
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.34 * scale, 0.08 * scale, 0.12 * scale), armorMaterial);
+    brow.position.set(0, 1.82 * scale, 0.12 * scale);
+
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.05 * scale, 10, 10), critMaterial);
+    leftEye.position.set(-0.1 * scale, 1.78 * scale, 0.22 * scale);
+    const rightEye = leftEye.clone();
+    rightEye.position.x *= -1;
+
+    const leftEar = new THREE.Mesh(new THREE.ConeGeometry(0.09 * scale, 0.28 * scale, 8), skinMaterial);
+    leftEar.position.set(-0.24 * scale, 1.92 * scale, -0.02 * scale);
+    leftEar.rotation.z = Math.PI * 0.35;
+    leftEar.rotation.x = Math.PI * 0.12;
+    const rightEar = leftEar.clone();
+    rightEar.position.x *= -1;
+    rightEar.rotation.z *= -1;
+
+    this.leftArmPivot = new THREE.Group();
+    this.leftArmPivot.position.set(0.44 * scale, 1.42 * scale, 0);
+    this.rightArmPivot = new THREE.Group();
+    this.rightArmPivot.position.set(-0.44 * scale, 1.42 * scale, 0);
+
+    const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.085 * scale, 0.11 * scale, 0.74 * scale, 10), skinMaterial);
+    leftArm.position.y = -0.36 * scale;
+    const rightArm = leftArm.clone();
+
+    const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.1 * scale, 10, 10), skinMaterial);
+    leftHand.position.y = -0.76 * scale;
+    const rightHand = leftHand.clone();
+
+    const leftShoulder = new THREE.Mesh(new THREE.SphereGeometry(0.14 * scale, 10, 10), armorMaterial);
+    leftShoulder.position.set(0.44 * scale, 1.46 * scale, 0.02 * scale);
+    const rightShoulder = leftShoulder.clone();
+    rightShoulder.position.x *= -1;
+
+    this.leftLegPivot = new THREE.Group();
+    this.leftLegPivot.position.set(0.17 * scale, 0.76 * scale, 0.03 * scale);
+    this.rightLegPivot = new THREE.Group();
+    this.rightLegPivot.position.set(-0.17 * scale, 0.76 * scale, 0.03 * scale);
+
+    const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * scale, 0.12 * scale, 0.78 * scale, 10), skinMaterial);
+    leftLeg.position.y = -0.38 * scale;
+    const rightLeg = leftLeg.clone();
+
+    const leftFoot = new THREE.Mesh(new THREE.BoxGeometry(0.16 * scale, 0.1 * scale, 0.3 * scale), weaponMaterial);
+    leftFoot.position.set(0, -0.78 * scale, 0.1 * scale);
+    const rightFoot = leftFoot.clone();
+
+    this.leftArmPivot.add(leftArm, leftHand);
+    this.rightArmPivot.add(rightArm, rightHand);
+    this.leftLegPivot.add(leftLeg, leftFoot);
+    this.rightLegPivot.add(rightLeg, rightFoot);
+
+    this.bodyPivot.add(
+      pelvis,
+      this.torso,
+      this.chest,
+      belt,
+      this.head,
+      snout,
+      brow,
+      leftEye,
+      rightEye,
+      leftEar,
+      rightEar,
+      this.leftArmPivot,
+      this.rightArmPivot,
+      leftShoulder,
+      rightShoulder,
+      this.leftLegPivot,
+      this.rightLegPivot,
     );
-    topShell.position.y = 0.12 * scale;
-
-    const bottomShell = new THREE.Mesh(
-      new THREE.SphereGeometry(0.82 * scale, 18, 18, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.36),
-      shellMaterial,
-    );
-    bottomShell.position.y = -0.24 * scale;
-
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18 * scale, 18, 18), critMaterial);
-    eye.position.set(0, 0.02 * scale, 0.62 * scale);
-
-    this.bodyPivot.add(core, shellRing, topShell, bottomShell, eye);
 
     if (this.type.boss) {
-      const crownRing = new THREE.Mesh(new THREE.TorusGeometry(1.18 * scale, 0.08 * scale, 14, 40), trimMaterial);
-      crownRing.rotation.x = Math.PI / 2;
-      crownRing.position.y = 0.66 * scale;
-      this.bodyPivot.add(crownRing);
-      this.crownRing = crownRing;
+      this.robe = new THREE.Mesh(new THREE.CylinderGeometry(0.74 * scale, 0.46 * scale, 1.28 * scale, 12), clothMaterial);
+      this.robe.position.y = 0.84 * scale;
+      this.robe.scale.set(1, 1, 0.92);
+      this.bodyPivot.add(this.robe);
 
-      const halo = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: this.game.glowTextures.orange,
-          color: 0xffd58c,
-          transparent: true,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-          opacity: 0.72,
-        }),
-      );
-      halo.position.y = 0.82 * scale;
-      halo.scale.setScalar(2.2 * scale);
-      this.bodyPivot.add(halo);
-      this.bossHalo = halo;
-    }
+      const mantle = new THREE.Mesh(new THREE.TorusGeometry(0.45 * scale, 0.06 * scale, 10, 24), trimMaterial);
+      mantle.position.y = 1.42 * scale;
+      mantle.rotation.x = Math.PI / 2;
+      this.bodyPivot.add(mantle);
 
-    for (let i = 0; i < 4; i += 1) {
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18 * scale, 0.66 * scale, 0.82 * scale), trimMaterial);
-      const angle = (Math.PI * 2 * i) / 4;
-      fin.position.set(Math.cos(angle) * 0.95 * scale, rand(-0.08, 0.08) * scale, Math.sin(angle) * 0.95 * scale);
-      fin.lookAt(fin.position.clone().multiplyScalar(2));
-      this.bodyPivot.add(fin);
-      this.registerHitMesh(fin, false);
-    }
+      this.staffCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.18 * scale, 0), magicMaterial);
+      this.staffCrystal.position.set(0, -1.54 * scale, 0.04 * scale);
 
-    const cannonLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * scale, 0.12 * scale, 0.85 * scale, 10), trimMaterial);
-    cannonLeft.rotation.z = Math.PI / 2;
-    cannonLeft.position.set(-0.86 * scale, -0.08 * scale, 0.28 * scale);
-
-    const cannonRight = cannonLeft.clone();
-    cannonRight.position.x *= -1;
-    this.bodyPivot.add(cannonLeft, cannonRight);
-
-    this.registerHitMesh(core, false);
-    this.registerHitMesh(shellRing, false);
-    this.registerHitMesh(topShell, false);
-    this.registerHitMesh(bottomShell, false);
-    this.registerHitMesh(eye, true);
-    this.registerHitMesh(cannonLeft, false);
-    this.registerHitMesh(cannonRight, false);
-
-    this.engineGlows = [];
-    const engineCount = this.type.boss ? 5 : 3;
-    for (let i = 0; i < engineCount; i += 1) {
-      const glow = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: this.game.glowTextures.cyan,
+      this.staffRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.24 * scale, 0.03 * scale, 8, 20),
+        new THREE.MeshBasicMaterial({
           color: trimColor,
           transparent: true,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-          opacity: 0.72,
+          opacity: 0.78,
         }),
       );
-      const angle = (Math.PI * 2 * i) / engineCount;
-      glow.position.set(Math.cos(angle) * 0.48 * scale, -0.45 * scale, Math.sin(angle) * 0.48 * scale);
-      glow.scale.setScalar(0.62 * scale);
-      this.bodyPivot.add(glow);
-      this.engineGlows.push(glow);
+      this.staffRing.position.set(0, -1.4 * scale, 0.04 * scale);
+      this.staffRing.rotation.x = Math.PI / 2;
+
+      const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.035 * scale, 0.05 * scale, 1.9 * scale, 10), weaponMaterial);
+      staff.position.y = -0.92 * scale;
+      staff.rotation.z = 0.08;
+      this.rightArmPivot.add(staff, this.staffRing, this.staffCrystal);
+
+      const focusOrb = new THREE.Mesh(new THREE.SphereGeometry(0.13 * scale, 12, 12), magicMaterial);
+      focusOrb.position.y = -0.72 * scale;
+      this.leftArmPivot.add(focusOrb);
+      this.focusOrb = focusOrb;
+
+      this.bossHalo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.game.glowTextures.orange,
+          color: coreColor,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          opacity: 0.6,
+        }),
+      );
+      this.bossHalo.position.y = 2.12 * scale;
+      this.bossHalo.scale.setScalar(1.9 * scale);
+      this.bodyPivot.add(this.bossHalo);
+    } else {
+      const haft = new THREE.Mesh(new THREE.CylinderGeometry(0.03 * scale, 0.045 * scale, 1.0 * scale, 8), weaponMaterial);
+      haft.position.y = -0.72 * scale;
+      this.rightArmPivot.add(haft);
+
+      let weaponHead;
+      if (this.typeName === "bruiser") {
+        weaponHead = new THREE.Mesh(new THREE.BoxGeometry(0.28 * scale, 0.28 * scale, 0.22 * scale), armorMaterial);
+        weaponHead.position.set(0, -1.14 * scale, 0.04 * scale);
+      } else if (this.typeName === "striker") {
+        weaponHead = new THREE.Mesh(new THREE.BoxGeometry(0.12 * scale, 0.42 * scale, 0.08 * scale), trimMaterial);
+        weaponHead.position.set(0, -1.08 * scale, 0.12 * scale);
+        weaponHead.rotation.z = 0.22;
+      } else {
+        weaponHead = new THREE.Mesh(new THREE.BoxGeometry(0.08 * scale, 0.32 * scale, 0.18 * scale), trimMaterial);
+        weaponHead.position.set(0, -1.02 * scale, 0.1 * scale);
+      }
+      this.rightArmPivot.add(weaponHead);
+      this.weaponHead = weaponHead;
+    }
+
+    this.weaponTip = new THREE.Object3D();
+    this.weaponTip.position.set(0, this.type.boss ? -1.56 * scale : -1.08 * scale, 0.1 * scale);
+    this.rightArmPivot.add(this.weaponTip);
+
+    this.registerHitMesh(this.torso, false);
+    this.registerHitMesh(this.chest, false);
+    this.registerHitMesh(this.head, true);
+    this.registerHitMesh(pelvis, false);
+    this.registerHitMesh(leftShoulder, false);
+    this.registerHitMesh(rightShoulder, false);
+    if (this.weaponHead) {
+      this.registerHitMesh(this.weaponHead, false);
+    }
+    if (this.staffCrystal) {
+      this.registerHitMesh(this.staffCrystal, false);
     }
 
     this.group.traverse((node) => {
@@ -832,7 +977,17 @@ class Enemy {
   }
 
   getEyePosition() {
-    return this.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.08, 0));
+    if (this.head) {
+      return this.head.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.04 * this.type.scale, 0.04 * this.type.scale));
+    }
+    return this.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, this.type.eyeHeight, 0));
+  }
+
+  getWeaponPosition() {
+    if (this.weaponTip) {
+      return this.weaponTip.getWorldPosition(new THREE.Vector3());
+    }
+    return this.getEyePosition();
   }
 
   hasLineOfSight() {
@@ -841,7 +996,7 @@ class Enemy {
     const direction = target.clone().sub(origin);
     const distance = direction.length();
     direction.normalize();
-    const raycaster = new THREE.Raycaster(origin, direction, 0, distance - 0.55);
+    const raycaster = new THREE.Raycaster(origin, direction, 0, Math.max(distance - 0.55, 0));
     return raycaster.intersectObjects(this.game.environmentRaycastMeshes, false).length === 0;
   }
 
@@ -851,36 +1006,45 @@ class Enemy {
     }
 
     const playerPosition = this.game.playerObject.position;
-    this.hoverTime += dt * (1.8 + this.type.scale * 0.2);
-    this.recoil = THREE.MathUtils.damp(this.recoil, 0, 11, dt);
+    this.hoverTime += dt * (1.8 + this.type.scale * 0.25);
+    this.recoil = THREE.MathUtils.damp(this.recoil, 0, 9, dt);
     this.hitFlash = THREE.MathUtils.damp(this.hitFlash, 0, 8, dt);
 
-    const target = new THREE.Vector3(playerPosition.x, this.type.hoverHeight, playerPosition.z);
-    const toPlayer = target.sub(this.group.position);
+    const toPlayer = playerPosition.clone().sub(this.group.position);
     toPlayer.y = 0;
     const distance = Math.max(0.0001, toPlayer.length());
     toPlayer.normalize();
-
-    const strafe = new THREE.Vector3(-toPlayer.z, 0, toPlayer.x).multiplyScalar(
-      Math.sin(this.hoverTime * 1.3 + this.type.scale) > 0 ? 1 : -1,
-    );
+    const canSeePlayer = this.hasLineOfSight();
+    const strafe = new THREE.Vector3(-toPlayer.z, 0, toPlayer.x).multiplyScalar(Math.sin(this.hoverTime * 1.4 + this.type.scale) > 0 ? 1 : -1);
     const desired = new THREE.Vector3();
 
-    if (distance > this.type.preferredRange) {
-      desired.add(toPlayer);
-    }
-    if (distance < this.type.retreatRange) {
-      desired.addScaledVector(toPlayer, -1.25);
+    if (this.type.melee) {
+      if (distance > this.type.attackRange * 0.78) {
+        desired.add(toPlayer);
+      } else {
+        desired.addScaledVector(strafe, this.typeName === "striker" ? 0.5 : 0.24);
+      }
+      if (!canSeePlayer) {
+        desired.addScaledVector(toPlayer, 0.9);
+      }
     } else {
-      desired.addScaledVector(strafe, this.type.boss ? 0.9 : 0.65);
+      if (distance > this.type.preferredRange) {
+        desired.add(toPlayer);
+      }
+      if (distance < this.type.retreatRange) {
+        desired.addScaledVector(toPlayer, -1.3);
+      } else {
+        desired.addScaledVector(strafe, 0.78);
+      }
+      if (!canSeePlayer) {
+        desired.addScaledVector(toPlayer, 0.95);
+      }
     }
 
-    if (!this.hasLineOfSight()) {
-      desired.addScaledVector(toPlayer, 0.9);
-    }
-
+    let moveAmount = 0;
     if (desired.lengthSq() > 0.001) {
       desired.normalize().multiplyScalar(this.type.speed * dt);
+      const previous = this.group.position.clone();
       const next = this.group.position.clone().add(desired);
       this.game.resolveCircleCollisions(next, this.radius);
 
@@ -902,39 +1066,84 @@ class Enemy {
 
       this.group.position.x = next.x;
       this.group.position.z = next.z;
+      moveAmount = previous.distanceTo(next) / Math.max(this.type.speed * dt, 0.001);
     }
+    this.moveBlend = THREE.MathUtils.damp(this.moveBlend, clamp(moveAmount, 0, 1), 8, dt);
 
-    this.group.position.y = this.type.hoverHeight + Math.sin(this.hoverTime * 2.1) * 0.24;
-    this.group.lookAt(playerPosition.x, this.group.position.y, playerPosition.z);
+    this.group.lookAt(playerPosition.x, this.type.eyeHeight * 0.72, playerPosition.z);
 
-    this.bodyPivot.rotation.z = Math.sin(this.hoverTime * 2.2) * 0.1 + this.recoil * 0.12;
-    this.bodyPivot.rotation.x = Math.cos(this.hoverTime * 1.5) * 0.08;
-    this.bodyPivot.position.y = Math.sin(this.hoverTime * 3.4) * 0.06;
+    const gaitSpeed = this.type.boss ? 3.2 : 8.8;
+    const gait = this.hoverTime * gaitSpeed;
+    const legSwing = Math.sin(gait) * 0.58 * this.moveBlend;
+    const armSwing = Math.sin(gait + Math.PI) * 0.42 * this.moveBlend;
+    const bob = Math.abs(Math.sin(gait * 0.5)) * 0.08 * this.moveBlend;
+    const attackBlend = clamp(this.recoil, 0, 1);
+
+    this.bodyPivot.position.y = this.type.hoverHeight + bob;
+    this.bodyPivot.rotation.z = Math.sin(this.hoverTime * 1.8) * 0.04 + this.hitFlash * 0.05;
+    this.bodyPivot.rotation.x = (this.type.boss ? -0.08 : 0.03) + this.hitFlash * 0.06;
     this.bodyPivot.scale.setScalar(1 + this.hitFlash * 0.04);
 
-    if (this.crownRing) {
-      this.crownRing.rotation.z += dt * 0.45;
-      this.crownRing.rotation.y += dt * 0.9;
+    this.leftLegPivot.rotation.x = legSwing;
+    this.rightLegPivot.rotation.x = -legSwing;
+    this.leftArmPivot.rotation.x = this.type.boss ? -0.28 + Math.sin(this.hoverTime * 2.2) * 0.08 : armSwing;
+    this.rightArmPivot.rotation.x = this.type.boss ? -0.52 - attackBlend * 0.34 : -armSwing - attackBlend * 0.95;
+    this.leftArmPivot.rotation.z = this.type.boss ? 0.14 : 0.06;
+    this.rightArmPivot.rotation.z = this.type.boss ? -0.16 : -0.12;
+    this.head.rotation.y = Math.sin(this.hoverTime * 0.75) * 0.08;
+    this.head.rotation.x = this.type.boss ? 0.12 : 0.05;
+    this.head.scale.set(
+      0.92 + this.hitFlash * 0.03,
+      1.04 + this.hitFlash * 0.03,
+      0.9 + this.hitFlash * 0.03,
+    );
+
+    if (this.robe) {
+      this.robe.rotation.y += dt * 0.2;
+      this.robe.scale.x = 1 + Math.sin(this.hoverTime * 1.6) * 0.02;
+      this.robe.scale.z = 0.92 + Math.cos(this.hoverTime * 1.4) * 0.02;
+    }
+    if (this.staffRing) {
+      this.staffRing.rotation.z += dt * 1.8;
+      this.staffRing.rotation.y += dt * 2.2;
+      this.staffRing.material.opacity = 0.52 + attackBlend * 0.22 + Math.sin(this.hoverTime * 3.8) * 0.08;
+    }
+    if (this.staffCrystal) {
+      this.staffCrystal.rotation.y += dt * 1.8;
+      this.staffCrystal.rotation.z += dt * 0.8;
+      this.staffCrystal.material.emissiveIntensity = 0.9 + attackBlend * 0.8 + Math.sin(this.hoverTime * 5.2) * 0.16;
+    }
+    if (this.focusOrb) {
+      this.focusOrb.scale.setScalar(0.9 + Math.sin(this.hoverTime * 4.2) * 0.08 + attackBlend * 0.08);
     }
     if (this.bossHalo) {
-      this.bossHalo.material.opacity = 0.58 + Math.sin(this.hoverTime * 2.6) * 0.14 + this.hitFlash * 0.2;
-      this.bossHalo.scale.setScalar((2.1 + Math.sin(this.hoverTime * 2.1) * 0.16) * this.type.scale);
-    }
-
-    for (const glow of this.engineGlows) {
-      const pulse = 0.8 + Math.sin(this.hoverTime * 9 + glow.position.x * 3) * 0.18 + this.hitFlash * 0.22;
-      glow.scale.setScalar(0.44 * this.type.scale * pulse);
-      glow.material.opacity = 0.6 + this.hitFlash * 0.2;
+      this.bossHalo.material.opacity = 0.42 + Math.sin(this.hoverTime * 2.4) * 0.1 + attackBlend * 0.18;
+      this.bossHalo.scale.setScalar((1.75 + Math.sin(this.hoverTime * 2.1) * 0.1) * this.type.scale);
     }
 
     this.fireCooldown -= dt;
-    if (distance < 18 && this.fireCooldown <= 0 && this.hasLineOfSight()) {
+    if (this.type.melee) {
+      if (distance < this.type.attackRange && this.fireCooldown <= 0 && canSeePlayer) {
+        this.performMeleeAttack();
+      }
+      return;
+    }
+
+    if (distance < 22 && this.fireCooldown <= 0 && canSeePlayer) {
       this.fire();
     }
   }
 
+  performMeleeAttack() {
+    this.fireCooldown = this.type.fireInterval * rand(0.88, 1.16);
+    this.recoil = 1.1;
+    this.game.audio.enemyShot();
+    this.game.spawnImpact(this.getWeaponPosition(), this.type.trimColor, this.typeName === "bruiser" ? 10 : 6, 4);
+    this.game.damagePlayer(this.type.damage, this.group.position);
+  }
+
   fire() {
-    const origin = this.getEyePosition();
+    const origin = this.getWeaponPosition();
     const target = this.game.getPlayerEyePosition().clone();
     const targetOffset = clamp(this.group.position.distanceTo(this.game.playerObject.position) / 24, 0.08, 0.18);
     target.x += rand(-targetOffset, targetOffset);
@@ -948,13 +1157,14 @@ class Enemy {
         const spread = this.type.spread || 0.08;
         const t = projectileCount === 1 ? 0 : i / (projectileCount - 1);
         direction.applyAxisAngle(UP, (t - 0.5) * spread);
-        direction.y += (t - 0.5) * spread * 0.3;
+        direction.y += (t - 0.5) * spread * 0.35;
         direction.normalize();
       }
       this.game.spawnEnemyBolt(origin, direction, this.type);
     }
+    this.game.spawnMagicBurst(origin, this.type.coreColor, 0.55);
     this.game.audio.enemyShot();
-    this.fireCooldown = this.type.fireInterval * rand(0.84, 1.16);
+    this.fireCooldown = this.type.fireInterval * rand(0.88, 1.12);
     this.recoil = 1;
   }
 
@@ -994,7 +1204,8 @@ class Enemy {
       this.game.bossEnemy = null;
     }
 
-    this.game.spawnExplosion(this.group.position, this.type.coreColor, 18, this.type.scale);
+    const burstPoint = this.group.position.clone().add(new THREE.Vector3(0, this.type.eyeHeight * 0.45, 0));
+    this.game.spawnExplosion(burstPoint, this.type.coreColor, this.type.boss ? 28 : 18, this.type.scale);
     if (this.type.boss) {
       this.game.audio.bossDown();
     } else {
@@ -1016,12 +1227,14 @@ class Game {
     this.isTouchDevice =
       window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
       "ontouchstart" in window;
-    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.isTouchDevice ? 1.5 : 2.6);
+    this.lowSpecMode = this.isTouchDevice || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+    this.useComposer = !this.lowSpecMode;
+    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
 
     this.camera = new THREE.PerspectiveCamera(82, window.innerWidth / window.innerHeight, 0.1, 200);
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: !this.lowSpecMode,
       alpha: false,
       powerPreference: "high-performance",
     });
@@ -1029,28 +1242,33 @@ class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.04;
+    this.renderer.toneMappingExposure = this.lowSpecMode ? 1 : 1.02;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = this.lowSpecMode ? THREE.BasicShadowMap : THREE.PCFShadowMap;
 
     this.controls = new PointerLockControls(this.camera, document.body);
     this.playerObject = this.controls.getObject();
     this.scene.add(this.playerObject);
 
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.setPixelRatio(this.renderPixelRatio);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      this.isTouchDevice ? 0.12 : 0.16,
-      0.16,
-      1.02,
-    );
-    this.composer.addPass(this.bloomPass);
+    this.composer = null;
+    this.bloomPass = null;
+    if (this.useComposer) {
+      this.composer = new EffectComposer(this.renderer);
+      this.composer.setPixelRatio(this.renderPixelRatio);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.08,
+        0.12,
+        1.08,
+      );
+      this.composer.addPass(this.bloomPass);
+    }
 
     this.audio = new AudioSystem();
     document.body.classList.toggle("touch-mode", this.isTouchDevice);
     this.minimapContext = ui.minimap.getContext("2d");
+    this.minimapRefreshTimer = 0;
     this.glowTextures = {
       cyan: makeGlowTexture("rgba(255,255,255,0.95)", "rgba(70, 226, 255, 0)"),
       orange: makeGlowTexture("rgba(255,245,214,0.96)", "rgba(255, 177, 86, 0)"),
@@ -1063,6 +1281,7 @@ class Game {
     this.collisionVolumes = [];
     this.enemies = [];
     this.projectiles = [];
+    this.grenades = [];
     this.effects = [];
     this.spawnPads = [];
     this.clouds = [];
@@ -1111,6 +1330,10 @@ class Game {
     this.weaponState = {
       rifle: { ammo: WEAPON_DEFS.rifle.magSize },
       lance: { ammo: WEAPON_DEFS.lance.magSize },
+    };
+    this.grenadeState = {
+      ammo: GRENADE_CONFIG.max,
+      cooldown: 0,
     };
 
     this.player = {
@@ -1206,6 +1429,8 @@ class Game {
   resetWeaponState() {
     this.weaponState.rifle.ammo = WEAPON_DEFS.rifle.magSize;
     this.weaponState.lance.ammo = WEAPON_DEFS.lance.magSize;
+    this.grenadeState.ammo = GRENADE_CONFIG.max;
+    this.grenadeState.cooldown = 0;
     this.activeWeaponId = "rifle";
     this.applyWeaponVisuals();
   }
@@ -1237,6 +1462,45 @@ class Game {
 
   toggleWeapon() {
     this.setActiveWeapon(this.activeWeaponId === "rifle" ? "lance" : "rifle");
+  }
+
+  throwGrenade() {
+    if (!this.isGameplayActive() || this.gameOver) {
+      return;
+    }
+    if (this.grenadeState.ammo <= 0 || this.grenadeState.cooldown > 0) {
+      return;
+    }
+
+    const start = this.getPlayerEyePosition();
+    const forward = this.camera.getWorldDirection(new THREE.Vector3()).normalize();
+    const mesh = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.14, 0),
+      new THREE.MeshStandardMaterial({
+        color: 0x3b4c31,
+        emissive: 0x98ff77,
+        emissiveIntensity: 0.18,
+        roughness: 0.52,
+        metalness: 0.18,
+      }),
+    );
+    mesh.position.copy(start).addScaledVector(forward, 0.72);
+    mesh.position.y -= 0.08;
+    mesh.castShadow = true;
+    this.scene.add(mesh);
+
+    this.grenades.push({
+      mesh,
+      velocity: forward.multiplyScalar(11.4).add(new THREE.Vector3(0, 4.8, 0)),
+      fuse: GRENADE_CONFIG.fuse,
+      bounces: 0,
+      spin: new THREE.Vector3(rand(-8, 8), rand(-10, 10), rand(-8, 8)),
+    });
+    this.grenadeState.ammo -= 1;
+    this.grenadeState.cooldown = GRENADE_CONFIG.cooldown;
+    this.weaponKick = Math.max(this.weaponKick, 0.32);
+    this.audio.pulse({ frequency: 320, slideTo: 190, duration: 0.12, startGain: 0.08, type: "triangle" });
+    ui.statusNote.textContent = "수류탄 투척. 고블린 무리가 몰릴 때 바닥으로 굴려 넣으세요.";
   }
 
   isGameplayActive() {
@@ -1407,6 +1671,11 @@ class Game {
       this.audio.unlock();
       this.toggleWeapon();
     });
+    ui.mobileGrenade.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      this.audio.unlock();
+      this.throwGrenade();
+    });
   }
 
   bindEvents() {
@@ -1425,6 +1694,9 @@ class Game {
       }
       if (event.code === "Digit2") {
         this.setActiveWeapon("lance");
+      }
+      if (event.code === "KeyG") {
+        this.throwGrenade();
       }
       if (event.code === "Escape" && this.controls.isLocked) {
         this.controls.unlock();
@@ -1462,6 +1734,7 @@ class Game {
     document.addEventListener("contextmenu", (event) => {
       event.preventDefault();
     });
+    document.addEventListener("pointerdown", () => this.audio.unlock(), { passive: true });
 
     ui.startButton.addEventListener("click", () => this.startOrResume());
     ui.pauseButton.addEventListener("click", () => this.pauseGame());
@@ -1516,13 +1789,15 @@ class Game {
   }
 
   onResize() {
-    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.isTouchDevice ? 1.5 : 2.6);
+    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(this.renderPixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.composer.setPixelRatio(this.renderPixelRatio);
-    this.composer.setSize(window.innerWidth, window.innerHeight);
+    if (this.composer) {
+      this.composer.setPixelRatio(this.renderPixelRatio);
+      this.composer.setSize(window.innerWidth, window.innerHeight);
+    }
   }
 
   createWorldMaterials() {
@@ -1747,7 +2022,7 @@ class Game {
     const sun = new THREE.DirectionalLight(0xfff1be, 2.7);
     sun.position.set(18, 28, 12);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(this.lowSpecMode ? 1024 : 1536, this.lowSpecMode ? 1024 : 1536);
     sun.shadow.camera.left = -45;
     sun.shadow.camera.right = 45;
     sun.shadow.camera.top = 45;
@@ -1895,6 +2170,7 @@ class Game {
     this.addWallDressings();
     this.addArenaCoverRoutes();
     this.addSkylineSetpieces();
+    this.addArenaRoof();
 
     this.addMountains();
     this.addCloud(-36, 20, -48, 5.8);
@@ -2083,6 +2359,150 @@ class Game {
     this.addHeroBillboard(-30, 8.4, 16, Math.PI * 0.75, 0xffd884, "SKYLINE");
     this.addHeroBillboard(30, 8.4, 16, -Math.PI * 0.75, 0x72fff0, "CORE RUN");
     this.addOverheadTransitLine();
+  }
+
+  addArenaRoof() {
+    const trussMaterial = this.worldMaterials.trimMetal;
+    const roofMaterial = this.worldMaterials.warmWall;
+    const skylightMaterial = this.worldMaterials.canopy.clone();
+    skylightMaterial.opacity = 0.62;
+    skylightMaterial.emissiveIntensity = 0.24;
+
+    const trussLines = [
+      { x: 0, z: -27, w: 68, d: 0.26 },
+      { x: 0, z: 27, w: 68, d: 0.26 },
+      { x: -27, z: 0, w: 0.26, d: 68 },
+      { x: 27, z: 0, w: 0.26, d: 68 },
+      { x: 0, z: -10.8, w: 58, d: 0.22 },
+      { x: 0, z: 10.8, w: 58, d: 0.22 },
+      { x: -10.8, z: 0, w: 0.22, d: 58 },
+      { x: 10.8, z: 0, w: 0.22, d: 58 },
+    ];
+
+    for (const line of trussLines) {
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(line.w, 0.2, line.d), trussMaterial);
+      beam.position.set(line.x, 11.6, line.z);
+      beam.castShadow = true;
+      this.scene.add(beam);
+    }
+
+    const roofBays = [
+      { x: -17, z: -17, w: 16, d: 16 },
+      { x: 17, z: -17, w: 16, d: 16 },
+      { x: -17, z: 17, w: 16, d: 16 },
+      { x: 17, z: 17, w: 16, d: 16 },
+      { x: 0, z: -24, w: 12, d: 12 },
+      { x: 0, z: 24, w: 12, d: 12 },
+      { x: -24, z: 0, w: 12, d: 12 },
+      { x: 24, z: 0, w: 12, d: 12 },
+    ];
+
+    for (const bay of roofBays) {
+      this.addRoofBay(bay.x, bay.z, bay.w, bay.d, roofMaterial, skylightMaterial);
+    }
+
+    this.addServiceDuct(-18, 10.7, 0, 18, "z");
+    this.addServiceDuct(18, 10.7, 0, 18, "z");
+    this.addServiceDuct(0, 10.7, -18, 18, "x");
+    this.addServiceDuct(0, 10.7, 18, 18, "x");
+
+    const lampPositions = [
+      [-16, -8],
+      [0, -8],
+      [16, -8],
+      [-16, 8],
+      [0, 8],
+      [16, 8],
+      [-8, -16],
+      [8, -16],
+      [-8, 16],
+      [8, 16],
+    ];
+    for (const [x, z] of lampPositions) {
+      this.addHangingLamp(x, z);
+    }
+  }
+
+  addRoofBay(x, z, w, d, roofMaterial, skylightMaterial) {
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, d), roofMaterial);
+    shell.position.set(x, 11.4, z);
+    shell.castShadow = true;
+    shell.receiveShadow = true;
+    this.scene.add(shell);
+
+    const opening = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.58, d * 0.58),
+      skylightMaterial,
+    );
+    opening.rotation.x = -Math.PI / 2;
+    opening.position.set(x, 11.3, z);
+    this.scene.add(opening);
+
+    for (const side of [-1, 1]) {
+      const ribA = new THREE.Mesh(new THREE.BoxGeometry(w * 0.9, 0.12, 0.18), this.worldMaterials.trimMetal);
+      ribA.position.set(x, 11.48, z + side * d * 0.22);
+      this.scene.add(ribA);
+
+      const ribB = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, d * 0.9), this.worldMaterials.trimMetal);
+      ribB.position.set(x + side * w * 0.22, 11.48, z);
+      this.scene.add(ribB);
+    }
+  }
+
+  addServiceDuct(x, y, z, length, axis) {
+    const horizontal = axis === "x";
+    const duct = new THREE.Mesh(
+      new THREE.BoxGeometry(horizontal ? length : 1.25, 1.15, horizontal ? 1.25 : length),
+      this.worldMaterials.wall,
+    );
+    duct.position.set(x, y, z);
+    duct.castShadow = true;
+    this.scene.add(duct);
+
+    for (const offset of [-1, 1]) {
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.11, 0.11, length, 10),
+        this.worldMaterials.trimMetal,
+      );
+      pipe.rotation.z = horizontal ? Math.PI / 2 : 0;
+      pipe.position.set(x + (horizontal ? 0 : offset * 0.5), y - 0.8, z + (horizontal ? offset * 0.5 : 0));
+      this.scene.add(pipe);
+    }
+  }
+
+  addHangingLamp(x, z) {
+    const cable = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8),
+      this.worldMaterials.trimMetal,
+    );
+    cable.position.set(x, 10.2, z);
+    this.scene.add(cable);
+
+    const lamp = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.44, 0.62, 0.42, 12),
+      this.worldMaterials.warmWall,
+    );
+    lamp.position.set(x, 8.8, z);
+    lamp.castShadow = true;
+    this.scene.add(lamp);
+
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.sun,
+        color: 0xffefb8,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    glow.position.set(x, 8.5, z);
+    glow.scale.set(2.8, 2.8, 1);
+    this.scene.add(glow);
+
+    this.decorAnimations.push((time) => {
+      glow.material.opacity = 0.22 + Math.sin(time * 2.8 + x * 0.12 + z * 0.08) * 0.05;
+    });
   }
 
   addCoverNode(x, z, w, d, h, accent) {
@@ -2728,6 +3148,11 @@ class Game {
       enemy.destroy(false);
     }
 
+    for (const grenade of this.grenades) {
+      this.scene.remove(grenade.mesh);
+    }
+    this.grenades.length = 0;
+
     for (const projectile of this.projectiles) {
       this.scene.remove(projectile.mesh);
     }
@@ -2872,6 +3297,16 @@ class Game {
           ? "브루저 드론은 체력이 높으니 중앙 눈 코어에 연속 헤드샷을 노리세요."
           : "스커미셔와 스트라이커는 빠르게 측면으로 흐르니 첫 탄을 화면 중앙에 정렬하는 게 중요합니다.";
     }
+    if (isBossWave) {
+      ui.objective.textContent = `WAVE ${this.wave}. The Goblin Hex Shaman is entering the arena. Break the swarm and dodge the spell volleys.`;
+      ui.statusNote.textContent = "Boss casting soon. Strafe across cover, then punish the shaman with cannon bursts.";
+    } else {
+      ui.objective.textContent = `WAVE ${this.wave}. Goblins are rushing the lanes. Hold the center and stop the melee swarm.`;
+      ui.statusNote.textContent =
+        this.wave >= 4
+          ? "Brutes are joining the push. Use cannon splash and grenades before the front line reaches you."
+          : "Raiders sprint faster than the rest. Keep your aim centered and cut them down before they flank.";
+    }
   }
 
   spawnEnemy(type, position) {
@@ -2880,18 +3315,44 @@ class Game {
     if (enemy.type.boss) {
       this.bossEnemy = enemy;
       this.showAnnouncement(enemy.type.label.toUpperCase(), 1.8, "#ffe7a3");
-      ui.objective.textContent = `BOSS WAVE ${this.wave}. Break the escort ring and collapse the Aurora core.`;
-      ui.statusNote.textContent = "Boss active. Break line of fire with lateral movement, then punish the core.";
+      ui.objective.textContent = `BOSS WAVE ${this.wave}. Break the goblin escort and bring down the Hex Shaman.`;
+      ui.statusNote.textContent = "Boss active. Keep moving between spell volleys, then dump cannon fire into the shaman.";
     }
   }
 
   spawnEnemyBolt(origin, direction, type) {
-    const mesh = new THREE.Mesh(
+    const mesh = new THREE.Group();
+    const core = new THREE.Mesh(
       new THREE.SphereGeometry(type.scale * 0.12, 10, 10),
-      new THREE.MeshBasicMaterial({
+      new THREE.MeshStandardMaterial({
         color: type.coreColor,
+        emissive: type.coreColor,
+        emissiveIntensity: 1,
+        roughness: 0.12,
+        metalness: 0.02,
       }),
     );
+    const aura = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: type.coreColor,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0.74,
+      }),
+    );
+    aura.scale.setScalar(type.scale * 0.5);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(type.scale * 0.19, type.scale * 0.026, 8, 18),
+      new THREE.MeshBasicMaterial({
+        color: type.trimColor,
+        transparent: true,
+        opacity: 0.78,
+      }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    mesh.add(core, aura, ring);
     mesh.position.copy(origin);
     this.scene.add(mesh);
     this.projectiles.push({
@@ -2900,6 +3361,11 @@ class Game {
       damage: type.damage,
       life: 4.2,
       color: type.coreColor,
+      ring,
+      aura,
+      auraBaseScale: type.scale * 0.5,
+      hitRadius: type.magic ? 0.9 : 0.65,
+      magic: Boolean(type.magic),
     });
   }
 
@@ -2954,6 +3420,53 @@ class Game {
       scaleBoost: 3.4 * scale,
       sprite: true,
     });
+  }
+
+  spawnMagicBurst(position, color, scale = 1) {
+    this.spawnImpact(position, color, Math.round(12 * scale), 5.8 * scale);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.38 * scale, 0.045 * scale, 8, 24),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.82,
+      }),
+    );
+    ring.position.copy(position);
+    ring.rotation.x = Math.PI / 2;
+    this.scene.add(ring);
+    this.effects.push({
+      object: ring,
+      velocity: new THREE.Vector3(),
+      gravity: 0,
+      life: 0.24,
+      total: 0.24,
+      scaleBoost: 1.8 * scale,
+      sprite: true,
+      spin: new THREE.Vector3(0, 6, 0),
+    });
+  }
+
+  damageEnemiesInRadius(position, radius, damage, ignoreEnemy = null) {
+    let hitCount = 0;
+    for (const enemy of [...this.enemies]) {
+      if (!enemy.alive || enemy === ignoreEnemy) {
+        continue;
+      }
+      const enemyCenter = enemy.group.position.clone().add(new THREE.Vector3(0, enemy.type.eyeHeight * 0.45, 0));
+      const reach = radius + enemy.radius * 0.5;
+      const distance = enemyCenter.distanceTo(position);
+      if (distance > reach) {
+        continue;
+      }
+      const falloff = 1 - clamp(distance / reach, 0, 1) * 0.72;
+      enemy.takeDamage(damage * Math.max(0.32, falloff), enemyCenter, false);
+      hitCount += 1;
+    }
+    if (hitCount > 0) {
+      this.hitmarkerTimer = 0.14;
+    }
+    return hitCount;
   }
 
   spawnTracer(start, end, color = 0xfff5c7) {
@@ -3145,7 +3658,16 @@ class Game {
       this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
     );
 
-    if (hitEnemy) {
+    if (weapon.explosive) {
+      const directDamage = weapon.damage * this.damageMultiplier;
+      if (hitEnemy) {
+        hitEnemy.takeDamage(directDamage, hitPoint, false);
+        this.hitmarkerTimer = 0.14;
+      }
+      this.spawnExplosion(hitPoint, weapon.tracerColor, 22, 1.04);
+      this.damageEnemiesInRadius(hitPoint, weapon.splashRadius, weapon.splashDamage * this.damageMultiplier, hitEnemy);
+      this.audio.pulse({ frequency: 110, slideTo: 42, duration: 0.16, startGain: 0.08, type: "sawtooth" });
+    } else if (hitEnemy) {
       const damage = (crit ? weapon.critDamage : weapon.damage) * this.damageMultiplier;
       hitEnemy.takeDamage(damage, hitPoint, crit);
       this.hitmarkerTimer = 0.14;
@@ -3258,6 +3780,7 @@ class Game {
 
   updateCombat(dt) {
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+    this.grenadeState.cooldown = Math.max(0, this.grenadeState.cooldown - dt);
     this.crosshairKick = THREE.MathUtils.damp(this.crosshairKick, 0, 12, dt);
     this.weaponRecoil = THREE.MathUtils.damp(this.weaponRecoil, 0, 14, dt);
     this.weaponKick = THREE.MathUtils.damp(this.weaponKick, 0, 9, dt);
@@ -3339,9 +3862,73 @@ class Game {
     this.muzzleFlash.scale.setScalar((isLance ? 0.55 : 0.35) + this.muzzleTimer * (isLance ? 6.2 : 4.8));
   }
 
+  explodeGrenade(grenade, index, position = grenade.mesh.position.clone()) {
+    this.scene.remove(grenade.mesh);
+    this.grenades.splice(index, 1);
+    this.spawnExplosion(position, 0xa7ff6d, 26, 1.2);
+    this.damageEnemiesInRadius(position, GRENADE_CONFIG.radius, GRENADE_CONFIG.damage * this.damageMultiplier);
+    this.audio.pulse({ frequency: 96, slideTo: 34, duration: 0.2, startGain: 0.1, type: "sawtooth" });
+  }
+
+  updateGrenades(dt) {
+    for (let i = this.grenades.length - 1; i >= 0; i -= 1) {
+      const grenade = this.grenades[i];
+      const previous = grenade.mesh.position.clone();
+
+      grenade.fuse -= dt;
+      grenade.velocity.y -= CONFIG.gravity * 0.72 * dt;
+      grenade.mesh.position.addScaledVector(grenade.velocity, dt);
+      grenade.mesh.rotation.x += grenade.spin.x * dt;
+      grenade.mesh.rotation.y += grenade.spin.y * dt;
+      grenade.mesh.rotation.z += grenade.spin.z * dt;
+
+      const travel = grenade.mesh.position.clone().sub(previous);
+      const distance = travel.length();
+      if (distance > 0.0001) {
+        const raycaster = new THREE.Raycaster(previous, travel.normalize(), 0, distance + 0.04);
+        const wallHits = raycaster.intersectObjects(this.environmentRaycastMeshes, false);
+        if (wallHits.length > 0) {
+          const hit = wallHits[0];
+          grenade.mesh.position.copy(hit.point);
+          if (hit.face) {
+            const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+            grenade.mesh.position.addScaledVector(normal, 0.12);
+            grenade.velocity.reflect(normal).multiplyScalar(0.46);
+          } else {
+            grenade.velocity.x *= -0.46;
+            grenade.velocity.z *= -0.46;
+          }
+          grenade.bounces += 1;
+        }
+      }
+
+      if (grenade.mesh.position.y <= 0.18) {
+        grenade.mesh.position.y = 0.18;
+        grenade.velocity.y = Math.abs(grenade.velocity.y) * 0.36;
+        grenade.velocity.x *= 0.82;
+        grenade.velocity.z *= 0.82;
+        grenade.bounces += 1;
+      }
+
+      if (grenade.fuse <= 0 || (grenade.bounces > 4 && grenade.velocity.lengthSq() < 5)) {
+        this.explodeGrenade(grenade, i);
+      }
+    }
+  }
+
   updateProjectiles(dt) {
     for (let i = this.projectiles.length - 1; i >= 0; i -= 1) {
       const projectile = this.projectiles[i];
+      if (projectile.ring) {
+        projectile.ring.rotation.z += dt * 6;
+        projectile.ring.rotation.y += dt * 4;
+      }
+      if (projectile.aura) {
+        projectile.aura.material.opacity = 0.56 + Math.sin(this.time * 12 + i) * 0.16;
+        projectile.aura.scale.setScalar(
+          projectile.auraBaseScale + Math.sin(this.time * 9 + i) * 0.04 + (projectile.magic ? 0.1 : 0),
+        );
+      }
       const previous = projectile.mesh.position.clone();
       projectile.mesh.position.addScaledVector(projectile.velocity, dt);
       projectile.life -= dt;
@@ -3352,16 +3939,24 @@ class Game {
       const wallHits = raycaster.intersectObjects(this.environmentRaycastMeshes, false);
 
       if (wallHits.length > 0) {
-        this.spawnImpact(wallHits[0].point, projectile.color, 6, 4);
+        if (projectile.magic) {
+          this.spawnMagicBurst(wallHits[0].point, projectile.color, 0.75);
+        } else {
+          this.spawnImpact(wallHits[0].point, projectile.color, 6, 4);
+        }
         this.scene.remove(projectile.mesh);
         this.projectiles.splice(i, 1);
         continue;
       }
 
       const eye = this.getPlayerEyePosition();
-      if (projectile.mesh.position.distanceTo(eye) < 0.65) {
+      if (projectile.mesh.position.distanceTo(eye) < (projectile.hitRadius || 0.65)) {
         this.damagePlayer(projectile.damage, projectile.mesh.position);
-        this.spawnImpact(projectile.mesh.position, projectile.color, 8, 5);
+        if (projectile.magic) {
+          this.spawnMagicBurst(projectile.mesh.position, projectile.color, 0.9);
+        } else {
+          this.spawnImpact(projectile.mesh.position, projectile.color, 8, 5);
+        }
         this.scene.remove(projectile.mesh);
         this.projectiles.splice(i, 1);
         continue;
@@ -3479,13 +4074,14 @@ class Game {
       0,
       1,
     );
+    const audioRunning = Boolean(this.audio.context && this.audio.context.state === "running");
     this.audio.updateMusic({
-      started: this.started,
+      started: this.started || audioRunning,
       gameOver: this.gameOver,
       paused: this.started && !this.isGameplayActive(),
       boss: Boolean(this.bossEnemy),
-      intensity,
-      wave: this.wave,
+      intensity: this.started ? intensity : 0.34,
+      wave: Math.max(this.wave, 1),
     });
   }
 
@@ -3580,6 +4176,8 @@ class Game {
     ui.combo.textContent = `COMBO x${this.combo}`;
     ui.weaponSlotRifle.classList.toggle("active", this.activeWeaponId === "rifle");
     ui.weaponSlotLance.classList.toggle("active", this.activeWeaponId === "lance");
+    ui.grenadeCount.textContent = `G GRENADE x${this.grenadeState.ammo}`;
+    ui.grenadeCount.classList.toggle("active", this.grenadeState.cooldown <= 0 && this.grenadeState.ammo > 0);
 
     for (const key of UPGRADE_KEYS) {
       ui[`upgrade${key[0].toUpperCase()}${key.slice(1)}Level`].textContent = `Lv.${this.progression[key]}`;
@@ -3633,6 +4231,7 @@ class Game {
     this.updateTouchLook();
     this.updateMovement(dt);
     this.updateCombat(dt);
+    this.updateGrenades(dt);
 
     for (const enemy of [...this.enemies]) {
       enemy.update(dt);
@@ -3649,9 +4248,17 @@ class Game {
     this.updateAmbient(dt);
     this.updateGame(dt);
     this.updateWeapon(dt);
-    this.updateMinimap();
+    this.minimapRefreshTimer -= dt;
+    if (this.minimapRefreshTimer <= 0) {
+      this.updateMinimap();
+      this.minimapRefreshTimer = this.lowSpecMode ? 0.14 : 0.08;
+    }
     this.updateUI();
-    this.composer.render();
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 }
 
