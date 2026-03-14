@@ -1379,6 +1379,7 @@ class Game {
       angle: 0,
     };
     this.reloadTimer = 0;
+    this.reloadTotal = 0;
     this.fireCooldown = 0;
     this.weaponRecoil = 0;
     this.weaponKick = 0;
@@ -1409,6 +1410,7 @@ class Game {
       vaultCooldown: 0,
       lastDamageTime: -10,
       damagePulse: 0,
+      stuckTime: 0,
     };
 
     this.applyProgressionBonuses();
@@ -3609,9 +3611,9 @@ class Game {
     shotgunStock.rotation.y = -0.12;
     const shotgunButt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.12), this.weaponMaterials.grip);
     shotgunButt.position.set(-0.08, 0.02, 0.74);
-    const rifleMagazine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.28), this.weaponMaterials.grip);
-    rifleMagazine.position.set(-0.08, -0.18, -0.18);
-    rifleMagazine.rotation.z = 0.16;
+    this.playerRifleMagazine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.28), this.weaponMaterials.grip);
+    this.playerRifleMagazine.position.set(-0.08, -0.18, -0.18);
+    this.playerRifleMagazine.rotation.z = 0.16;
     const rifleScope = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.42), armorMaterial);
     rifleScope.position.set(0, 0.26, -0.18);
     const rifleFinLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.38), armorMaterial);
@@ -3660,7 +3662,7 @@ class Game {
       shotgunGrip,
       shotgunStock,
       shotgunButt,
-      rifleMagazine,
+      this.playerRifleMagazine,
       rifleScope,
       rifleFinLeft,
       rifleFinRight,
@@ -3885,8 +3887,10 @@ class Game {
     this.effects.length = 0;
 
     this.player.velocity.set(0, 0, 0);
-    this.playerObject.position.set(0, CONFIG.playerHeight, 16);
-    this.lookAngles.yaw = Math.PI;
+    const safeSpawn = this.findSafePlayerSpawn();
+    this.playerObject.position.copy(safeSpawn.position);
+    this.resolveCircleCollisions(this.playerObject.position, CONFIG.playerRadius);
+    this.lookAngles.yaw = safeSpawn.yaw;
     this.lookAngles.pitch = 0;
     this.resetTouchLookState();
     this.viewRecoil.pitch = 0;
@@ -3897,10 +3901,11 @@ class Game {
     this.applyProgressionBonuses();
     this.player.shield = this.player.maxShield;
     this.player.onGround = true;
-    this.player.groundHeight = CONFIG.playerHeight;
+    this.player.groundHeight = this.playerObject.position.y;
     this.player.vaultCooldown = 0;
     this.player.lastDamageTime = -10;
     this.player.damagePulse = 0;
+    this.player.stuckTime = 0;
     this.damageFeedback.flash = 0;
     this.damageFeedback.direction = 0;
     this.damageFeedback.angle = 0;
@@ -3920,6 +3925,7 @@ class Game {
     this.bossEnemy = null;
     this.fireCooldown = 0;
     this.reloadTimer = 0;
+    this.reloadTotal = 0;
     this.weaponRecoil = 0;
     this.weaponKick = 0;
     this.showAnnouncement("MISSION START", 1.5, "#86f2ff");
@@ -3993,6 +3999,15 @@ class Game {
     const bob = Math.abs(Math.cos(gait * 0.5)) * 0.08 * move;
     const aimBlend = this.aimDownSights ? 1 : 0;
     const isLance = this.activeWeaponId === "lance";
+    const rifleReloading = !isLance && this.reloadTimer > 0 && this.reloadTotal > 0;
+    const reloadAlpha = rifleReloading ? clamp(1 - this.reloadTimer / Math.max(this.reloadTotal, 0.0001), 0, 1) : 0;
+    const reloadReach = rifleReloading ? Math.sin(reloadAlpha * Math.PI) : 0;
+    const reloadStage = rifleReloading
+      ? reloadAlpha < 0.52
+        ? Math.sin((reloadAlpha / 0.52) * Math.PI * 0.5)
+        : Math.cos(((reloadAlpha - 0.52) / 0.48) * Math.PI * 0.5)
+      : 0;
+    const reloadAccent = rifleReloading ? Math.sin(reloadAlpha * Math.PI) : 0;
 
     this.playerBodyPivot.position.y = THREE.MathUtils.damp(this.playerBodyPivot.position.y, bob, 10, dt);
     this.playerBodyPivot.rotation.z = THREE.MathUtils.damp(
@@ -4019,61 +4034,78 @@ class Game {
     this.playerRightLegPivot.rotation.x = -legSwing;
     this.playerLeftArmPivot.rotation.x = THREE.MathUtils.damp(
       this.playerLeftArmPivot.rotation.x,
-      -0.72 + armSwing * 0.34 - aimBlend * 0.14,
+      -0.72 + armSwing * 0.34 - aimBlend * 0.14 - reloadReach * 0.44,
       12,
       dt,
     );
     this.playerRightArmPivot.rotation.x = THREE.MathUtils.damp(
       this.playerRightArmPivot.rotation.x,
-      -1.16 - this.weaponRecoil * 0.16 - armSwing * 0.15,
+      -1.16 - this.weaponRecoil * 0.16 - armSwing * 0.15 + reloadReach * 0.18,
       12,
       dt,
     );
-    this.playerLeftArmPivot.rotation.z = THREE.MathUtils.damp(this.playerLeftArmPivot.rotation.z, 0.2, 12, dt);
+    this.playerLeftArmPivot.rotation.z = THREE.MathUtils.damp(
+      this.playerLeftArmPivot.rotation.z,
+      0.2 + reloadReach * 0.46,
+      12,
+      dt,
+    );
     this.playerRightArmPivot.rotation.z = THREE.MathUtils.damp(
       this.playerRightArmPivot.rotation.z,
-      -0.42 + (isLance ? -0.08 : 0),
+      -0.42 + (isLance ? -0.08 : 0) - reloadReach * 0.12,
       12,
       dt,
     );
 
     this.playerWeaponPivot.position.x = THREE.MathUtils.damp(
       this.playerWeaponPivot.position.x,
-      isLance ? -0.14 : -0.22,
+      (isLance ? -0.14 : -0.22) + reloadReach * 0.06,
       12,
       dt,
     );
     this.playerWeaponPivot.position.y = THREE.MathUtils.damp(
       this.playerWeaponPivot.position.y,
-      1.28 - bob * 0.18 + this.weaponKick * 0.03,
+      1.28 - bob * 0.18 + this.weaponKick * 0.03 - reloadReach * 0.12,
       12,
       dt,
     );
     this.playerWeaponPivot.position.z = THREE.MathUtils.damp(
       this.playerWeaponPivot.position.z,
-      THREE.MathUtils.lerp(-0.22, -0.08, aimBlend),
+      THREE.MathUtils.lerp(-0.22, -0.08, aimBlend) + reloadReach * 0.08,
       12,
       dt,
     );
     this.playerWeaponPivot.rotation.x = THREE.MathUtils.damp(
       this.playerWeaponPivot.rotation.x,
-      (isLance ? -0.1 : -0.2) - this.weaponRecoil * 0.08,
+      (isLance ? -0.1 : -0.2) - this.weaponRecoil * 0.08 + reloadReach * 0.12,
       12,
       dt,
     );
     this.playerWeaponPivot.rotation.y = THREE.MathUtils.damp(
       this.playerWeaponPivot.rotation.y,
-      isLance ? 0.14 : 0.08,
+      (isLance ? 0.14 : 0.08) + reloadReach * 0.1,
       12,
       dt,
     );
     this.playerWeaponPivot.rotation.z = THREE.MathUtils.damp(
       this.playerWeaponPivot.rotation.z,
-      isLance ? -0.14 : -0.08,
+      (isLance ? -0.14 : -0.08) + reloadReach * 0.08,
       12,
       dt,
     );
 
+    if (this.playerRifleMagazine) {
+      this.playerRifleMagazine.position.set(
+        -0.08 + reloadStage * 0.14,
+        -0.18 - reloadStage * 0.36 + reloadAccent * 0.12,
+        -0.18 + reloadStage * 0.28,
+      );
+      this.playerRifleMagazine.rotation.set(
+        -reloadStage * 0.92 + reloadAccent * 0.18,
+        reloadStage * 0.22,
+        0.16 + reloadStage * 0.54,
+      );
+    }
     if (this.playerShotgunPump) {
       this.playerShotgunPump.position.z = -0.76 + (isLance ? 0 : this.weaponRecoil * 0.16);
     }
@@ -4205,6 +4237,143 @@ class Game {
     const limit = CONFIG.arenaLimit - radius;
     position.x = clamp(position.x, -limit, limit);
     position.z = clamp(position.z, -limit, limit);
+  }
+
+  isPositionClear(position, radius, allowedTopHeight = -Infinity, ignoredVolume = null) {
+    const limit = CONFIG.arenaLimit - radius;
+    if (position.x < -limit || position.x > limit || position.z < -limit || position.z > limit) {
+      return false;
+    }
+
+    for (const obstacle of this.collisionVolumes) {
+      if (obstacle === ignoredVolume) {
+        continue;
+      }
+      if (allowedTopHeight >= obstacle.topY - 0.04) {
+        continue;
+      }
+
+      const closestX = clamp(position.x, obstacle.minX, obstacle.maxX);
+      const closestZ = clamp(position.z, obstacle.minZ, obstacle.maxZ);
+      const dx = position.x - closestX;
+      const dz = position.z - closestZ;
+      if (dx * dx + dz * dz < radius * radius - 0.0001) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  getThirdPersonSpawnClearance(position, yaw) {
+    const anchor = position.clone().add(new THREE.Vector3(0, 0.08, 0));
+    const desiredOffset = new THREE.Vector3(CONFIG.thirdPersonShoulder, CONFIG.thirdPersonHeight, CONFIG.thirdPersonDistance);
+    desiredOffset.applyAxisAngle(UP, yaw);
+    const distance = desiredOffset.length();
+    if (distance < 0.0001) {
+      return 0;
+    }
+
+    const raycaster = new THREE.Raycaster(anchor, desiredOffset.clone().normalize(), 0, distance);
+    const hits = raycaster.intersectObjects(this.cameraCollisionMeshes, false);
+    return hits.length > 0 ? hits[0].distance : distance;
+  }
+
+  findSafePlayerSpawn() {
+    const baseCandidates = [
+      new THREE.Vector2(8.4, 16.4),
+      new THREE.Vector2(-8.4, 16.4),
+      new THREE.Vector2(8.4, -16.4),
+      new THREE.Vector2(-8.4, -16.4),
+      new THREE.Vector2(0, 18.6),
+      new THREE.Vector2(0, -18.6),
+      new THREE.Vector2(18.6, 0),
+      new THREE.Vector2(-18.6, 0),
+    ];
+
+    let bestCandidate = null;
+    let bestScore = -Infinity;
+    const evaluateCandidate = (x, z, preferred) => {
+      const candidate = new THREE.Vector3(x, CONFIG.playerHeight, z);
+      const groundY = this.getGroundHeightAt(candidate, CONFIG.playerHeight);
+      candidate.y = groundY;
+      const allowedTopHeight = groundY - CONFIG.playerHeight;
+      if (!this.isPositionClear(candidate, CONFIG.playerRadius, allowedTopHeight)) {
+        return;
+      }
+
+      const toCenter = new THREE.Vector3(-candidate.x, 0, -candidate.z);
+      if (toCenter.lengthSq() < 0.0001) {
+        toCenter.set(0, 0, -1);
+      } else {
+        toCenter.normalize();
+      }
+
+      const yaw = Math.atan2(-toCenter.x, -toCenter.z);
+      const cameraClearance = this.getThirdPersonSpawnClearance(candidate, yaw);
+      const preferredOffset = preferred.distanceTo(new THREE.Vector2(x, z));
+      const score = cameraClearance * 1.35 - preferredOffset * 0.08;
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = { position: candidate, yaw };
+      }
+    };
+
+    for (const preferred of baseCandidates) {
+      evaluateCandidate(preferred.x, preferred.y, preferred);
+      for (let radius = 1.8; radius <= 6.6; radius += 1.6) {
+        for (let i = 0; i < 10; i += 1) {
+          const angle = (Math.PI * 2 * i) / 10;
+          evaluateCandidate(
+            preferred.x + Math.cos(angle) * radius,
+            preferred.y + Math.sin(angle) * radius,
+            preferred,
+          );
+        }
+      }
+    }
+
+    if (bestCandidate) {
+      return bestCandidate;
+    }
+
+    const fallback = new THREE.Vector3(8.4, CONFIG.playerHeight, 16.4);
+    fallback.y = this.getGroundHeightAt(fallback, CONFIG.playerHeight);
+    this.resolveCircleCollisions(fallback, CONFIG.playerRadius);
+    return { position: fallback, yaw: 0 };
+  }
+
+  findNearbyRecoveryPosition(origin, moveDirection) {
+    const forward = moveDirection.clone();
+    forward.y = 0;
+    if (forward.lengthSq() < 0.0001) {
+      forward.set(0, 0, -1);
+    } else {
+      forward.normalize();
+    }
+
+    const right = new THREE.Vector3().crossVectors(forward, UP).normalize();
+    const candidateDirections = [
+      forward,
+      right,
+      right.clone().negate(),
+      forward.clone().negate(),
+      forward.clone().add(right).normalize(),
+      forward.clone().sub(right).normalize(),
+    ];
+
+    for (const distance of [0.42, 0.74, 1.08]) {
+      for (const direction of candidateDirections) {
+        const candidate = origin.clone().addScaledVector(direction, distance);
+        const groundY = this.getGroundHeightAt(candidate, Math.max(origin.y, candidate.y));
+        candidate.y = groundY;
+        if (this.isPositionClear(candidate, CONFIG.playerRadius, groundY - CONFIG.playerHeight)) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
   }
 
   getPlayerEyePosition() {
@@ -4701,7 +4870,8 @@ class Game {
       return;
     }
 
-    this.reloadTimer = weapon.reloadTime * this.reloadMultiplier;
+    this.reloadTotal = weapon.reloadTime * this.reloadMultiplier;
+    this.reloadTimer = this.reloadTotal;
     this.mouseDown = false;
     this.audio.reload(this.activeWeaponId);
     ui.statusNote.textContent = "리로드 중입니다. 좌우 무빙으로 시선을 끊으며 장전을 마치세요.";
@@ -4710,6 +4880,7 @@ class Game {
   completeReload() {
     const weapon = this.getActiveWeapon();
     this.getActiveWeaponState().ammo = weapon.magSize;
+    this.reloadTotal = 0;
     if (this.activeWeaponId === "lance") {
       this.audio.pump();
     }
@@ -4897,6 +5068,8 @@ class Game {
   }
 
   updateMovement(dt) {
+    const previousPosition = this.playerObject.position.clone();
+    const wasOnGround = this.player.onGround;
     const inputX =
       ((this.keys.KeyD || this.keys.ArrowRight) ? 1 : 0) -
       ((this.keys.KeyA || this.keys.ArrowLeft) ? 1 : 0) +
@@ -4967,6 +5140,24 @@ class Game {
       this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y)) - CONFIG.playerHeight,
     );
     this.resolveCircleCollisions(next, CONFIG.playerRadius, null, allowedTopHeight);
+
+    const travelSq =
+      (next.x - previousPosition.x) * (next.x - previousPosition.x) +
+      (next.z - previousPosition.z) * (next.z - previousPosition.z);
+    if (input.lengthSq() > 0.08 && wasOnGround && travelSq < 0.0003) {
+      this.player.stuckTime = Math.min(this.player.stuckTime + dt, 0.3);
+      if (this.player.stuckTime > 0.08) {
+        const recovery = this.findNearbyRecoveryPosition(previousPosition, desired.lengthSq() > 0.01 ? desired : forward);
+        if (recovery) {
+          next.copy(recovery);
+          this.player.velocity.x *= 0.35;
+          this.player.velocity.z *= 0.35;
+          this.player.stuckTime = 0;
+        }
+      }
+    } else {
+      this.player.stuckTime = 0;
+    }
 
     const groundY = this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y));
     if (next.y <= groundY + 0.08) {
