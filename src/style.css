@@ -1202,6 +1202,29 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
 }
 
 @media (hover: none) and (pointer: coarse) {
+  .minimap-card {
+    width: min(34vw, 124px);
+    padding: 8px;
+    border-radius: 18px;
+    margin-left: auto;
+  }
+
+  .minimap-head {
+    margin-bottom: 6px;
+  }
+
+  .minimap-head .eyebrow {
+    font-size: 9px;
+  }
+
+  .minimap-head strong {
+    font-size: 12px;
+  }
+
+  .minimap-canvas {
+    border-radius: 12px;
+  }
+
   .overlay {
     align-items: stretch;
     padding: 0;
@@ -1253,6 +1276,10 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
 }
 
 @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  .minimap-card {
+    width: min(30vw, 112px);
+  }
+
   .overlay-panel {
     display: flex;
     flex-direction: column;

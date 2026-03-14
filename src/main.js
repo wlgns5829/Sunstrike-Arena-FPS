@@ -148,25 +148,28 @@ const WEAPON_DEFS = {
     grip: 0x161c24,
   },
   lance: {
-    label: "THUNDER HOWL SHOTGUN",
-    magSize: 7,
-    fireInterval: 0.58,
-    reloadTime: 1.12,
-    damage: 10,
-    critDamage: 15,
-    pelletCount: 12,
-    spread: 0.098,
-    effectiveRange: 13,
-    maxRange: 28,
-    crosshairBase: 13,
+    label: "EMBERFANG FLAMETHROWER",
+    magSize: 80,
+    fireInterval: 0.048,
+    reloadTime: 1.72,
+    damage: 2.1,
+    critDamage: 2.1,
+    flame: true,
+    flameRays: 7,
+    spread: 0.14,
+    effectiveRange: 9,
+    maxRange: 16,
+    burnDamage: 8,
+    burnDuration: 1.45,
+    crosshairBase: 15,
     explosive: false,
-    tracerColor: 0xffb65b,
-    aimTracerColor: 0xffe1af,
+    tracerColor: 0xff6d2e,
+    aimTracerColor: 0xffd36a,
     fov: 67,
     hipFov: 82,
-    accent: 0xff8d3a,
-    body: 0xfff1d5,
-    grip: 0x6b4223,
+    accent: 0xff6d2e,
+    body: 0x4f2d23,
+    grip: 0x17110f,
   },
 };
 
@@ -315,7 +318,7 @@ class AudioSystem {
       nextStepTime: 0,
       step: 0,
       stepDuration: 0.25,
-      targetGain: 0.11,
+      targetGain: 0.18,
     };
     this.musicDrone = null;
     this.musicOrchestra = null;
@@ -329,7 +332,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.38;
+      this.master.gain.value = 0.64;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -340,7 +343,7 @@ class AudioSystem {
       this.musicBus.gain.value = 0.0001;
       this.musicFilter = this.context.createBiquadFilter();
       this.musicFilter.type = "lowpass";
-      this.musicFilter.frequency.value = 1600;
+      this.musicFilter.frequency.value = 2800;
       this.musicBus.connect(this.musicFilter);
       this.musicFilter.connect(this.master);
       this.initMusic();
@@ -362,7 +365,7 @@ class AudioSystem {
 
     const droneFilter = this.context.createBiquadFilter();
     droneFilter.type = "lowpass";
-    droneFilter.frequency.value = 260;
+    droneFilter.frequency.value = 360;
 
     const subGain = this.context.createGain();
     subGain.gain.value = 0.0001;
@@ -404,24 +407,38 @@ class AudioSystem {
 
     const orchestraFilter = this.context.createBiquadFilter();
     orchestraFilter.type = "lowpass";
-    orchestraFilter.frequency.value = 1800;
+    orchestraFilter.frequency.value = 2800;
 
     const anthemGain = this.context.createGain();
     anthemGain.gain.value = 0.0001;
     const choirGain = this.context.createGain();
     choirGain.gain.value = 0.0001;
+    const brassGain = this.context.createGain();
+    brassGain.gain.value = 0.0001;
+    const choirBassGain = this.context.createGain();
+    choirBassGain.gain.value = 0.0001;
 
     const anthemOscA = this.context.createOscillator();
     anthemOscA.type = "sawtooth";
     anthemOscA.frequency.value = midiToFrequency(57);
+    anthemOscA.detune.value = -6;
 
     const anthemOscB = this.context.createOscillator();
     anthemOscB.type = "triangle";
     anthemOscB.frequency.value = midiToFrequency(64);
+    anthemOscB.detune.value = 5;
 
     const choirOsc = this.context.createOscillator();
     choirOsc.type = "sine";
     choirOsc.frequency.value = midiToFrequency(69);
+    const brassOsc = this.context.createOscillator();
+    brassOsc.type = "sawtooth";
+    brassOsc.frequency.value = midiToFrequency(76);
+    brassOsc.detune.value = 9;
+    const choirBassOsc = this.context.createOscillator();
+    choirBassOsc.type = "triangle";
+    choirBassOsc.frequency.value = midiToFrequency(52);
+    choirBassOsc.detune.value = -4;
 
     anthemOscA.connect(anthemGain);
     anthemOscB.connect(anthemGain);
@@ -430,17 +447,27 @@ class AudioSystem {
 
     choirOsc.connect(choirGain);
     choirGain.connect(orchestraFilter);
+    brassOsc.connect(brassGain);
+    brassGain.connect(orchestraFilter);
+    choirBassOsc.connect(choirBassGain);
+    choirBassGain.connect(orchestraFilter);
 
     anthemOscA.start();
     anthemOscB.start();
     choirOsc.start();
+    brassOsc.start();
+    choirBassOsc.start();
 
     this.musicOrchestra = {
       anthemOscA,
       anthemOscB,
       choirOsc,
+      brassOsc,
+      choirBassOsc,
       anthemGain,
       choirGain,
+      brassGain,
+      choirBassGain,
       filter: orchestraFilter,
     };
   }
@@ -511,11 +538,10 @@ class AudioSystem {
   shot(weaponId = "rifle") {
     const now = this.context?.currentTime ?? null;
     if (weaponId === "lance") {
-      this.pulse({ frequency: 118, slideTo: 42, duration: 0.18, startGain: 0.28, type: "sawtooth", when: now });
-      this.pulse({ frequency: 210, slideTo: 74, duration: 0.11, startGain: 0.15, type: "triangle", when: now });
-      this.pulse({ frequency: 980, slideTo: 310, duration: 0.05, startGain: 0.11, type: "square", when: now });
-      this.noise(0.11, 0.13, now, null, "bandpass", 1650);
-      this.noise(0.18, 0.045, now ? now + 0.02 : null, null, "lowpass", 720);
+      this.pulse({ frequency: 164, slideTo: 102, duration: 0.06, startGain: 0.11, type: "sawtooth", when: now });
+      this.pulse({ frequency: 420, slideTo: 190, duration: 0.04, startGain: 0.045, type: "triangle", when: now });
+      this.noise(0.065, 0.1, now, null, "bandpass", 1180);
+      this.noise(0.09, 0.04, now ? now + 0.01 : null, null, "highpass", 2600);
       return;
     }
 
@@ -531,8 +557,9 @@ class AudioSystem {
       return;
     }
 
-    this.pulse({ frequency: 540, slideTo: 220, duration: 0.11, startGain: 0.08, type: "triangle" });
-    this.pulse({ frequency: 360, slideTo: 640, duration: 0.09, startGain: 0.05, type: "sine" });
+    this.pulse({ frequency: 160, slideTo: 74, duration: 0.18, startGain: 0.08, type: "triangle" });
+    this.noise(0.08, 0.06, null, null, "bandpass", 900);
+    this.pulse({ frequency: 320, slideTo: 620, duration: 0.08, startGain: 0.03, type: "square" });
   }
 
   pump() {
@@ -581,11 +608,12 @@ class AudioSystem {
       frequency: 112,
       slideTo: 62,
       duration: 0.09,
-      startGain: gain * 0.22,
+      startGain: gain * 0.32,
       type: "triangle",
       when,
       destination: this.musicBus,
     });
+    this.noise(0.04, gain * 0.08, when, this.musicBus, "lowpass", 180);
   }
 
   grandHit(when, gain = 0.09, boss = false) {
@@ -593,7 +621,7 @@ class AudioSystem {
       frequency: boss ? 82 : 74,
       slideTo: 34,
       duration: boss ? 0.48 : 0.38,
-      startGain: gain * 1.15,
+      startGain: gain * 1.35,
       type: "sawtooth",
       when,
       destination: this.musicBus,
@@ -602,14 +630,23 @@ class AudioSystem {
       frequency: boss ? 392 : 330,
       slideTo: boss ? 494 : 392,
       duration: 0.34,
-      startGain: gain * 0.46,
+      startGain: gain * 0.64,
       type: "triangle",
       when,
       destination: this.musicBus,
     });
+    this.pulse({
+      frequency: boss ? 622 : 554,
+      slideTo: boss ? 466 : 392,
+      duration: boss ? 0.42 : 0.34,
+      startGain: gain * 0.42,
+      type: "sawtooth",
+      when,
+      destination: this.musicBus,
+    });
     this.noise(
-      boss ? 0.24 : 0.18,
-      gain * 0.2,
+      boss ? 0.28 : 0.22,
+      gain * 0.26,
       when,
       this.musicBus,
       "bandpass",
@@ -678,13 +715,13 @@ class AudioSystem {
     const snareSteps = state.boss ? [2, 6, 10, 14] : [4, 12];
 
     if (step % 4 === 0) {
-      this.kick(when, state.boss ? 0.24 : 0.16 + state.intensity * 0.07);
+      this.kick(when, state.boss ? 0.3 : 0.22 + state.intensity * 0.1);
     } else if (state.boss && step % 2 === 0) {
-      this.kick(when, 0.12);
+      this.kick(when, 0.17);
     }
 
     if (step % 8 === 0) {
-      this.grandHit(when, state.boss ? 0.14 : 0.08 + state.intensity * 0.035, state.boss);
+      this.grandHit(when, state.boss ? 0.2 : 0.13 + state.intensity * 0.05, state.boss);
     }
 
     if (step % 8 === 0) {
@@ -692,22 +729,29 @@ class AudioSystem {
         note: chord[0] - 12,
         when,
         duration: stepDuration * 7.4,
-        gain: state.boss ? 0.074 : 0.056,
+        gain: state.boss ? 0.098 : 0.074,
         type: "sine",
       });
       this.scheduleMusicNote({
         note: chord[2],
         when,
         duration: stepDuration * 6.2,
-        gain: state.boss ? 0.042 : 0.032,
+        gain: state.boss ? 0.064 : 0.046,
         type: "triangle",
       });
       this.scheduleMusicNote({
         note: chord[3] + (state.boss ? 12 : 7),
         when,
         duration: stepDuration * (state.boss ? 7.8 : 7.2),
-        gain: state.boss ? 0.06 : 0.038 + state.intensity * 0.02,
+        gain: state.boss ? 0.094 : 0.058 + state.intensity * 0.03,
         type: state.boss ? "sawtooth" : "triangle",
+      });
+      this.scheduleMusicNote({
+        note: chord[1] + (state.boss ? 12 : 0),
+        when,
+        duration: stepDuration * 5.6,
+        gain: state.boss ? 0.08 : 0.038 + state.intensity * 0.024,
+        type: "sawtooth",
       });
     }
 
@@ -716,7 +760,7 @@ class AudioSystem {
         note: chord[0] - 12,
         when,
         duration: stepDuration * (state.boss ? 1.35 : 1.7),
-        gain: state.boss ? 0.12 : 0.092,
+        gain: state.boss ? 0.16 : 0.12,
         type: state.boss ? "sawtooth" : "triangle",
         slideTo: chord[0] - 24,
       });
@@ -727,7 +771,7 @@ class AudioSystem {
       note: arpNote + (state.boss ? 12 : 0),
       when,
       duration: stepDuration * 0.9,
-      gain: 0.052 + state.intensity * 0.03,
+      gain: 0.07 + state.intensity * 0.045,
       type: state.boss ? "square" : "triangle",
     });
 
@@ -736,7 +780,7 @@ class AudioSystem {
         note: chord[(step + 1) % chord.length] + (state.boss ? 19 : 12),
         when,
         duration: stepDuration * 1.35,
-        gain: state.boss ? 0.064 : 0.026 + state.intensity * 0.026,
+        gain: state.boss ? 0.09 : 0.04 + state.intensity * 0.04,
         type: state.boss ? "sawtooth" : "sine",
       });
     }
@@ -744,7 +788,7 @@ class AudioSystem {
     if (state.intensity > 0.25 || state.boss) {
       this.noise(
         stepDuration * 0.22,
-        state.boss ? 0.032 : 0.022,
+        state.boss ? 0.052 : 0.034,
         when,
         this.musicBus,
         "bandpass",
@@ -755,7 +799,7 @@ class AudioSystem {
     if (snareSteps.includes(step % 16)) {
       this.noise(
         stepDuration * 0.38,
-        state.boss ? 0.05 : 0.038,
+        state.boss ? 0.08 : 0.056,
         when,
         this.musicBus,
         "highpass",
@@ -773,8 +817,8 @@ class AudioSystem {
     const paused = !state.started || state.gameOver || state.paused;
     const bpm = state.boss ? 148 : state.intensity > 0.72 ? 136 : state.intensity > 0.3 ? 124 : 112;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.008 : state.boss ? 0.38 : 0.19 + state.intensity * 0.16;
-    const targetFilter = paused ? 1200 : state.boss ? 3600 : 2100 + state.intensity * 1600;
+    const targetGain = paused ? 0.045 : state.boss ? 0.64 : 0.34 + state.intensity * 0.24;
+    const targetFilter = paused ? 1800 : state.boss ? 5200 : 3200 + state.intensity * 2200;
 
     this.music.stepDuration = stepDuration;
     this.music.targetGain = targetGain;
@@ -789,8 +833,8 @@ class AudioSystem {
     if (this.musicDrone) {
       const rootProgression = state.boss ? [45, 43, 48, 50] : [45, 43, 50, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const droneBase = paused ? 0.0001 : state.boss ? 0.115 : 0.065 + state.intensity * 0.05;
-      const shimmerBase = paused ? 0.0001 : state.boss ? 0.052 : 0.022 + state.intensity * 0.024;
+      const droneBase = paused ? 0.02 : state.boss ? 0.16 : 0.095 + state.intensity * 0.08;
+      const shimmerBase = paused ? 0.01 : state.boss ? 0.085 : 0.042 + state.intensity * 0.042;
 
       this.musicDrone.subOscA.frequency.cancelScheduledValues(now);
       this.musicDrone.subOscA.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.4);
@@ -810,7 +854,7 @@ class AudioSystem {
       this.musicDrone.filter.frequency.cancelScheduledValues(now);
       this.musicDrone.filter.frequency.setValueAtTime(this.musicDrone.filter.frequency.value, now);
       this.musicDrone.filter.frequency.linearRampToValueAtTime(
-        paused ? 220 : state.boss ? 520 : 280 + state.intensity * 220,
+        paused ? 360 : state.boss ? 760 : 420 + state.intensity * 320,
         now + 0.32,
       );
     }
@@ -818,8 +862,10 @@ class AudioSystem {
     if (this.musicOrchestra) {
       const rootProgression = state.boss ? [57, 55, 60, 62] : [57, 55, 62, 60];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const anthemBase = paused ? 0.0001 : state.boss ? 0.06 : 0.026 + state.intensity * 0.036;
-      const choirBase = paused ? 0.0001 : state.boss ? 0.04 : 0.012 + state.intensity * 0.024;
+      const anthemBase = paused ? 0.02 : state.boss ? 0.12 : 0.065 + state.intensity * 0.07;
+      const choirBase = paused ? 0.016 : state.boss ? 0.09 : 0.034 + state.intensity * 0.048;
+      const brassBase = paused ? 0.014 : state.boss ? 0.115 : 0.052 + state.intensity * 0.058;
+      const choirBassBase = paused ? 0.012 : state.boss ? 0.08 : 0.03 + state.intensity * 0.04;
 
       this.musicOrchestra.anthemOscA.frequency.cancelScheduledValues(now);
       this.musicOrchestra.anthemOscA.frequency.linearRampToValueAtTime(midiToFrequency(root), now + 0.42);
@@ -827,6 +873,10 @@ class AudioSystem {
       this.musicOrchestra.anthemOscB.frequency.linearRampToValueAtTime(midiToFrequency(root + 7), now + 0.42);
       this.musicOrchestra.choirOsc.frequency.cancelScheduledValues(now);
       this.musicOrchestra.choirOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 14 : 12)), now + 0.42);
+      this.musicOrchestra.brassOsc.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.brassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 19 : 16)), now + 0.42);
+      this.musicOrchestra.choirBassOsc.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.choirBassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root - 5), now + 0.42);
 
       this.musicOrchestra.anthemGain.gain.cancelScheduledValues(now);
       this.musicOrchestra.anthemGain.gain.setValueAtTime(this.musicOrchestra.anthemGain.gain.value, now);
@@ -836,10 +886,18 @@ class AudioSystem {
       this.musicOrchestra.choirGain.gain.setValueAtTime(this.musicOrchestra.choirGain.gain.value, now);
       this.musicOrchestra.choirGain.gain.linearRampToValueAtTime(choirBase, now + 0.32);
 
+      this.musicOrchestra.brassGain.gain.cancelScheduledValues(now);
+      this.musicOrchestra.brassGain.gain.setValueAtTime(this.musicOrchestra.brassGain.gain.value, now);
+      this.musicOrchestra.brassGain.gain.linearRampToValueAtTime(brassBase, now + 0.32);
+
+      this.musicOrchestra.choirBassGain.gain.cancelScheduledValues(now);
+      this.musicOrchestra.choirBassGain.gain.setValueAtTime(this.musicOrchestra.choirBassGain.gain.value, now);
+      this.musicOrchestra.choirBassGain.gain.linearRampToValueAtTime(choirBassBase, now + 0.32);
+
       this.musicOrchestra.filter.frequency.cancelScheduledValues(now);
       this.musicOrchestra.filter.frequency.setValueAtTime(this.musicOrchestra.filter.frequency.value, now);
       this.musicOrchestra.filter.frequency.linearRampToValueAtTime(
-        paused ? 900 : state.boss ? 2600 : 1800 + state.intensity * 900,
+        paused ? 1600 : state.boss ? 4200 : 2600 + state.intensity * 1600,
         now + 0.36,
       );
     }
@@ -872,6 +930,9 @@ class Enemy {
     this.moveBlend = 0;
     this.frostTimer = 0;
     this.frostFactor = 1;
+    this.burnTimer = 0;
+    this.burnDamage = 0;
+    this.burnTick = 0;
     this.hitMeshes = [];
     this.group = new THREE.Group();
     this.group.position.copy(spawnPosition);
@@ -920,6 +981,12 @@ class Enemy {
       roughness: 0.7,
       metalness: 0,
     });
+    this.capMaterial = capMaterial;
+    this.trimMaterial = trimMaterial;
+    this.magicMaterial = magicMaterial;
+    this.baseCapEmissiveIntensity = this.type.boss ? 0.18 : 0.08;
+    this.baseTrimEmissiveIntensity = 0.16;
+    this.baseMagicEmissiveIntensity = this.type.boss ? 1.25 : 0.54;
 
     this.bodyPivot = new THREE.Group();
     this.bodyPivot.position.y = this.type.hoverHeight;
@@ -1182,6 +1249,23 @@ class Enemy {
     if (this.frostTimer <= 0) {
       this.frostFactor = 1;
     }
+    this.burnTimer = Math.max(0, this.burnTimer - dt);
+    if (this.burnTimer <= 0) {
+      this.burnDamage = 0;
+    } else {
+      this.burnTick -= dt;
+      if (this.burnTick <= 0) {
+        this.burnTick += 0.18;
+        const center = this.group.position.clone().add(new THREE.Vector3(0, this.type.eyeHeight * 0.38, 0));
+        this.health -= this.burnDamage * 0.18;
+        this.hitFlash = Math.max(this.hitFlash, 0.24);
+        this.game.spawnImpact(center, 0xff8f3f, this.type.boss ? 6 : 4, this.type.boss ? 3.8 : 2.6);
+        if (this.health <= 0) {
+          this.destroy(true);
+          return;
+        }
+      }
+    }
 
     const playerPosition = this.game.playerObject.position;
     const playerEye = this.game.getPlayerEyePosition();
@@ -1268,6 +1352,16 @@ class Enemy {
     this.bodyPivot.rotation.z = Math.sin(this.hoverTime * 1.8) * 0.04 + this.hitFlash * 0.05;
     this.bodyPivot.rotation.x = (this.type.boss ? -0.08 : 0.03) + this.hitFlash * 0.06;
     this.bodyPivot.scale.setScalar(1 + this.hitFlash * 0.04);
+    const burnGlow = this.burnTimer > 0 ? 0.16 + Math.sin(this.hoverTime * 18) * 0.08 : 0;
+    if (this.capMaterial) {
+      this.capMaterial.emissiveIntensity = this.baseCapEmissiveIntensity + burnGlow;
+    }
+    if (this.trimMaterial) {
+      this.trimMaterial.emissiveIntensity = this.baseTrimEmissiveIntensity + burnGlow * 0.9;
+    }
+    if (this.magicMaterial) {
+      this.magicMaterial.emissiveIntensity = this.baseMagicEmissiveIntensity + burnGlow * 0.45;
+    }
 
     this.leftLegPivot.rotation.x = legSwing;
     this.rightLegPivot.rotation.x = -legSwing;
@@ -1378,6 +1472,13 @@ class Enemy {
     this.frostFactor = Math.min(this.frostFactor, slowFactor);
     this.frostTimer = Math.max(this.frostTimer, duration);
     this.hitFlash = Math.max(this.hitFlash, 0.32);
+  }
+
+  applyBurn(damage = 8, duration = 1) {
+    this.burnDamage = Math.max(this.burnDamage, damage);
+    this.burnTimer = Math.max(this.burnTimer, duration);
+    this.burnTick = Math.min(this.burnTick || 0.18, 0.12);
+    this.hitFlash = Math.max(this.hitFlash, 0.3);
   }
 
   destroy(scored = false) {
@@ -1503,7 +1604,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-ultimate-fantasy-a";
+    this.debugBuild = "2026-03-14-flame-mobile-b";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1552,8 +1653,8 @@ class Game {
       cooldown: 0,
     };
     this.ultimateState = {
-      charge: 0,
-      max: 100,
+      uses: 10,
+      maxUses: 10,
     };
 
     this.player = {
@@ -1677,6 +1778,9 @@ class Game {
     }
     if (this.cannonMuzzleFlash) {
       this.cannonMuzzleFlash.material.color.setHex(WEAPON_DEFS.lance.tracerColor);
+    }
+    if (this.playerPilotFlame) {
+      this.playerPilotFlame.material.color.setHex(WEAPON_DEFS.lance.aimTracerColor);
     }
     if (this.playerShotgunGroup && this.playerCannonGroup) {
       this.playerShotgunGroup.visible = this.activeWeaponId === "rifle";
@@ -4265,6 +4369,27 @@ class Game {
       shell.position.set(0.18, 0.02 + i * 0.02, -0.36 + i * 0.14);
       this.playerCannonGroup.add(shell);
     }
+    const nozzleCore = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.62, 14), lightGunTrimMaterial);
+    nozzleCore.rotation.x = Math.PI / 2;
+    nozzleCore.position.set(0.03, 0.04, -1.56);
+    const nozzleGuard = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 10, 26), safetyOrangeMaterial);
+    nozzleGuard.rotation.x = Math.PI / 2;
+    nozzleGuard.position.set(0.03, 0.04, -1.34);
+    const fuelTankMaterial = new THREE.MeshStandardMaterial({
+      color: 0x5d291d,
+      emissive: 0xff7c34,
+      emissiveIntensity: 0.18,
+      roughness: 0.22,
+      metalness: 0.52,
+    });
+    const fuelTankLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.8, 14), fuelTankMaterial);
+    fuelTankLeft.rotation.z = Math.PI / 2;
+    fuelTankLeft.position.set(0.16, 0.02, -0.22);
+    const fuelTankRight = fuelTankLeft.clone();
+    fuelTankRight.position.x = -0.1;
+    const hose = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.026, 10, 28, Math.PI * 1.2), lightGunTrimMaterial);
+    hose.position.set(0.02, -0.06, -0.78);
+    hose.rotation.set(Math.PI / 2, 0, 0.4);
     this.playerMuzzleCannon = new THREE.Object3D();
     this.playerMuzzleCannon.position.set(0.02, 0.05, -1.68);
     this.cannonMuzzleFlash = new THREE.Sprite(
@@ -4279,6 +4404,18 @@ class Game {
     );
     this.cannonMuzzleFlash.position.set(0.02, 0.05, -1.6);
     this.cannonMuzzleFlash.scale.set(0.9, 0.9, 1);
+    this.playerPilotFlame = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: 0xffa64f,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.playerPilotFlame.position.set(0.02, 0.03, -1.42);
+    this.playerPilotFlame.scale.set(0.32, 0.48, 1);
     this.playerCannonGroup.add(
       cannonBody,
       cannonBarrel,
@@ -4288,8 +4425,14 @@ class Game {
       shotgunTubeB,
       this.playerLancePump,
       shotgunShellRack,
+      nozzleCore,
+      nozzleGuard,
+      fuelTankLeft,
+      fuelTankRight,
+      hose,
       this.playerMuzzleCannon,
       this.cannonMuzzleFlash,
+      this.playerPilotFlame,
     );
     this.playerCannonGroup.scale.set(1.08, 1.08, 1.14);
 
@@ -4524,7 +4667,7 @@ class Game {
     this.player.stuckTime = 0;
     this.player.avatarYawOffset = 0;
     this.player.avatarYawTarget = 0;
-    this.ultimateState.charge = 0;
+    this.ultimateState.uses = this.ultimateState.maxUses;
     this.damageFeedback.flash = 0;
     this.damageFeedback.direction = 0;
     this.damageFeedback.angle = 0;
@@ -4764,7 +4907,7 @@ class Game {
       this.playerShotgunPump.rotation.x = isLance ? 0 : -this.weaponRecoil * 0.08;
     }
     if (this.playerLancePump) {
-      this.playerLancePump.position.z = -0.72 + (isLance ? this.weaponRecoil * 0.2 : 0);
+      this.playerLancePump.position.z = -0.72 + (isLance ? this.weaponRecoil * 0.1 : 0);
     }
     if (this.playerRifleLaser) {
       this.playerRifleLaser.visible = !isLance;
@@ -4778,7 +4921,17 @@ class Game {
       );
     }
     if (this.playerCannonCoil) {
-      this.playerCannonCoil.rotation.z += dt * 4.2;
+      this.playerCannonCoil.rotation.z += dt * (isLance ? 7.8 : 4.2);
+    }
+    if (this.playerPilotFlame) {
+      this.playerPilotFlame.material.opacity = isLance
+        ? clamp(0.24 + Math.sin(this.time * 18) * 0.08 + this.muzzleTimer * 8, 0, 1)
+        : 0;
+      this.playerPilotFlame.scale.set(
+        0.28 + this.muzzleTimer * 2.4,
+        0.42 + this.muzzleTimer * 3.4,
+        1,
+      );
     }
 
     if (this.shotgunMuzzleFlash) {
@@ -4786,8 +4939,8 @@ class Game {
       this.shotgunMuzzleFlash.scale.setScalar(0.7 + this.muzzleTimer * 7.4);
     }
     if (this.cannonMuzzleFlash) {
-      this.cannonMuzzleFlash.material.opacity = this.activeWeaponId === "lance" && this.muzzleTimer > 0 ? this.muzzleTimer * 12 : 0;
-      this.cannonMuzzleFlash.scale.setScalar(0.95 + this.muzzleTimer * 8.2);
+      this.cannonMuzzleFlash.material.opacity = this.activeWeaponId === "lance" && this.muzzleTimer > 0 ? this.muzzleTimer * 9.5 : 0;
+      this.cannonMuzzleFlash.scale.set(0.9 + this.muzzleTimer * 5.2, 1.1 + this.muzzleTimer * 9.8, 1);
     }
   }
 
@@ -5101,7 +5254,7 @@ class Game {
     }
     if (isBossWave) {
       ui.objective.textContent = `WAVE ${this.wave}. The Sunspore Archmage is entering the arena. Break the mushroom swarm and dodge the spell spores.`;
-      ui.statusNote.textContent = "Boss casting soon. Weave through cover, then punish the archmage with shotgun bursts.";
+      ui.statusNote.textContent = "Boss casting soon. Weave through cover, then scorch the archmage with the flamethrower.";
     } else {
       ui.objective.textContent = `WAVE ${this.wave}. Mushroom critters are rushing the lanes. Hold the center and crush the melee swarm.`;
       ui.statusNote.textContent =
@@ -5118,7 +5271,7 @@ class Game {
       this.bossEnemy = enemy;
       this.showAnnouncement(enemy.type.label.toUpperCase(), 1.8, "#ffe7a3");
       ui.objective.textContent = `BOSS WAVE ${this.wave}. Break the mushroom escort and bring down the Sunspore Archmage.`;
-      ui.statusNote.textContent = "Boss active. Keep moving between spell volleys, then dump shotgun blasts into the archmage.";
+      ui.statusNote.textContent = "Boss active. Keep moving between spell volleys, then flood the archmage lane with fire.";
     }
   }
 
@@ -5351,11 +5504,11 @@ class Game {
   }
 
   castUltimateNova() {
-    if (!this.isGameplayActive() || this.gameOver || this.ultimateState.charge < this.ultimateState.max) {
+    if (!this.isGameplayActive() || this.gameOver || this.ultimateState.uses <= 0) {
       return;
     }
 
-    this.ultimateState.charge = 0;
+    this.ultimateState.uses -= 1;
     const center = this.playerObject.position.clone();
     center.y = this.getGroundHeightAt(center.clone(), this.playerObject.position.y) - CONFIG.playerHeight + 0.08;
     this.spawnUltimateNova(center);
@@ -5645,6 +5798,104 @@ class Game {
     });
   }
 
+  spawnFlameBurst(origin, direction, weapon) {
+    const right = new THREE.Vector3().crossVectors(direction, UP);
+    if (right.lengthSq() < 0.0001) {
+      right.set(1, 0, 0);
+    } else {
+      right.normalize();
+    }
+    const localUp = new THREE.Vector3().crossVectors(right, direction).normalize();
+    const colors = [weapon.tracerColor, weapon.aimTracerColor, 0xff9a42, 0xff5b26];
+
+    const coreFlash = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: weapon.aimTracerColor,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    coreFlash.position.copy(origin).addScaledVector(direction, 0.46);
+    coreFlash.scale.set(0.74, 1.18, 1);
+    this.scene.add(coreFlash);
+    this.effects.push({
+      object: coreFlash,
+      velocity: direction.clone().multiplyScalar(4.2),
+      gravity: -1.5,
+      life: 0.08,
+      total: 0.08,
+      scaleBoost: 4.2,
+      sprite: true,
+    });
+
+    for (let i = 0; i < 10; i += 1) {
+      const life = rand(0.12, 0.2);
+      const flame = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.glowTextures.orange,
+          color: colors[i % colors.length],
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      flame.position
+        .copy(origin)
+        .addScaledVector(direction, rand(0.24, 1.1))
+        .addScaledVector(right, rand(-0.18, 0.18))
+        .addScaledVector(localUp, rand(-0.12, 0.18));
+      const size = rand(0.26, 0.58);
+      flame.scale.set(size * 0.72, size, 1);
+      this.scene.add(flame);
+      this.effects.push({
+        object: flame,
+        velocity: direction
+          .clone()
+          .multiplyScalar(rand(7.5, 13.5))
+          .addScaledVector(right, rand(-1.6, 1.6))
+          .addScaledVector(localUp, rand(-0.8, 1.8)),
+        gravity: -2.6,
+        life,
+        total: life,
+        scaleBoost: 2.8,
+        sprite: true,
+      });
+    }
+
+    for (let i = 0; i < 3; i += 1) {
+      const life = 0.22 + i * 0.05;
+      const smoke = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.glowTextures.smoke,
+          color: 0x38281d,
+          transparent: true,
+          opacity: 0.34,
+          depthWrite: false,
+        }),
+      );
+      smoke.position.copy(origin).addScaledVector(direction, 0.2 + i * 0.12);
+      smoke.scale.setScalar(0.44 + i * 0.16);
+      this.scene.add(smoke);
+      this.effects.push({
+        object: smoke,
+        velocity: direction
+          .clone()
+          .multiplyScalar(1.6 + i * 0.28)
+          .addScaledVector(localUp, 1.4 + i * 0.4)
+          .addScaledVector(right, rand(-0.4, 0.4)),
+        gravity: -0.5,
+        life,
+        total: life,
+        scaleBoost: 2.1,
+        sprite: true,
+      });
+    }
+  }
+
   setDamageFeedback(sourcePosition = null) {
     this.damageFeedback.flash = 1;
     this.damageFeedback.direction = 1;
@@ -5708,7 +5959,6 @@ class Game {
     this.combo = clamp(this.combo + 1, 1, 8);
     this.score += enemy.type.score * this.combo;
     this.progression.cores += enemy.type.cores || 0;
-    this.gainUltimateCharge(enemy.type.boss ? 100 : enemy.typeName === "bruiser" ? 28 : enemy.typeName === "striker" ? 16 : 14);
     this.saveProgression();
     if (this.score > this.bestScore) {
       this.bestScore = this.score;
@@ -5754,17 +6004,23 @@ class Game {
     this.reloadTimer = this.reloadTotal;
     this.mouseDown = false;
     this.audio.reload(this.activeWeaponId);
-    ui.statusNote.textContent = "리로드 중입니다. 좌우 무빙으로 시선을 끊으며 장전을 마치세요.";
+    ui.statusNote.textContent =
+      this.activeWeaponId === "lance"
+        ? "Fuel chamber cycling. Keep moving while the flamethrower repressurizes."
+        : "Reloading magazine. Break line of sight until the rifle is ready.";
   }
 
   completeReload() {
     const weapon = this.getActiveWeapon();
     this.getActiveWeaponState().ammo = weapon.magSize;
     this.reloadTotal = 0;
-    if (this.activeWeaponId === "lance") {
+    if (this.activeWeaponId === "rifle") {
       this.audio.pump();
     }
-    ui.statusNote.textContent = "탄창 재정렬 완료. 화면 중앙 기준으로 정확하게 다시 진입하세요.";
+    ui.statusNote.textContent =
+      this.activeWeaponId === "lance"
+        ? "Fuel tanks pressurized. Sweep the lane with fire."
+        : "Fresh magazine seated. Re-engage from the center line.";
   }
 
   fireWeapon() {
@@ -5783,16 +6039,16 @@ class Game {
 
     this.fireCooldown = weapon.fireInterval;
     weaponState.ammo -= 1;
-    this.crosshairKick = weapon.pelletCount ? 1.62 : 0.92;
-    this.weaponRecoil = weapon.pelletCount ? 1.46 : 0.72;
-    this.weaponKick = weapon.pelletCount ? 1.34 : 0.7;
-    this.muzzleTimer = weapon.pelletCount ? 0.085 : 0.06;
+    this.crosshairKick = weapon.flame ? 0.72 : weapon.pelletCount ? 1.62 : 0.92;
+    this.weaponRecoil = weapon.flame ? 0.44 : weapon.pelletCount ? 1.46 : 0.72;
+    this.weaponKick = weapon.flame ? 0.38 : weapon.pelletCount ? 1.34 : 0.7;
+    this.muzzleTimer = weapon.flame ? 0.11 : weapon.pelletCount ? 0.085 : 0.06;
     this.audio.shot(this.activeWeaponId);
 
-    const recoilPitch = weapon.pelletCount ? 0.082 : 0.026;
-    const recoilYaw = weapon.pelletCount ? rand(-0.022, 0.022) : rand(-0.007, 0.007);
-    const recoilRoll = weapon.pelletCount ? rand(-0.018, 0.018) : rand(-0.005, 0.005);
-    this.viewRecoil.pitch = clamp(this.viewRecoil.pitch + recoilPitch, 0, weapon.pelletCount ? 0.2 : 0.1);
+    const recoilPitch = weapon.flame ? 0.014 : weapon.pelletCount ? 0.082 : 0.026;
+    const recoilYaw = weapon.flame ? rand(-0.01, 0.01) : weapon.pelletCount ? rand(-0.022, 0.022) : rand(-0.007, 0.007);
+    const recoilRoll = weapon.flame ? rand(-0.008, 0.008) : weapon.pelletCount ? rand(-0.018, 0.018) : rand(-0.005, 0.005);
+    this.viewRecoil.pitch = clamp(this.viewRecoil.pitch + recoilPitch, 0, weapon.pelletCount ? 0.2 : weapon.flame ? 0.08 : 0.1);
     this.viewRecoil.yaw = clamp(this.viewRecoil.yaw + recoilYaw, -0.08, 0.08);
     this.viewRecoil.roll = clamp(this.viewRecoil.roll + recoilRoll, -0.08, 0.08);
     this.applyViewRotation();
@@ -5857,6 +6113,66 @@ class Game {
       this.spawnExplosion(hitPoint, weapon.tracerColor, 22, 1.04);
       this.damageEnemiesInRadius(hitPoint, weapon.splashRadius, weapon.splashDamage * this.damageMultiplier, hitEnemy);
       this.audio.pulse({ frequency: 110, slideTo: 42, duration: 0.16, startGain: 0.08, type: "sawtooth" });
+    } else if (weapon.flame) {
+      this.spawnFlameBurst(muzzleWorld, shotDirection, weapon);
+      const enemyHits = new Map();
+      const flameRays = weapon.flameRays || 6;
+      const visibleTracers = Math.min(2, flameRays);
+
+      for (let i = 0; i < flameRays; i += 1) {
+        const direction = baseRaycaster.ray.direction.clone();
+        const spread = (this.aimDownSights ? weapon.spread * 0.62 : weapon.spread) * (i === 0 ? 0.16 : 1);
+        const right = new THREE.Vector3().crossVectors(direction, UP);
+        if (right.lengthSq() < 0.0001) {
+          right.set(1, 0, 0);
+        } else {
+          right.normalize();
+        }
+        const localUp = new THREE.Vector3().crossVectors(right, direction).normalize();
+        direction.addScaledVector(right, rand(-spread, spread));
+        direction.addScaledVector(localUp, rand(-spread * 0.34, spread * 0.4));
+        direction.applyAxisAngle(UP, rand(-spread, spread) * 0.36);
+        direction.normalize();
+
+        const flameRay = new THREE.Raycaster(baseRaycaster.ray.origin, direction, 0, weapon.maxRange);
+        const flameHits = flameRay.intersectObjects(allTargets, false);
+        let flamePoint = flameRay.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
+
+        if (flameHits.length > 0) {
+          const flameHit = flameHits[0];
+          flamePoint = flameHit.point.clone();
+          if (flameHit.object.userData.enemy) {
+            const enemy = flameHit.object.userData.enemy;
+            const distanceToHit = flameRay.ray.origin.distanceTo(flamePoint);
+            const falloff = distanceToHit <= weapon.effectiveRange
+              ? 1
+              : clamp(
+                1 - (distanceToHit - weapon.effectiveRange) / Math.max(weapon.maxRange - weapon.effectiveRange, 0.001),
+                0.34,
+                1,
+              );
+            const flameDamage = weapon.damage * this.damageMultiplier * falloff;
+            const prev = enemyHits.get(enemy) || { damage: 0, point: flamePoint };
+            prev.damage += flameDamage;
+            prev.point = flamePoint;
+            enemyHits.set(enemy, prev);
+          } else if (i < 2) {
+            this.spawnImpact(flamePoint, weapon.tracerColor, 4, 2.8);
+          }
+        }
+
+        if (i < visibleTracers) {
+          this.spawnTracer(muzzleWorld, flamePoint, i === 0 ? weapon.aimTracerColor : weapon.tracerColor);
+        }
+      }
+
+      if (enemyHits.size > 0) {
+        for (const [enemy, data] of enemyHits.entries()) {
+          enemy.takeDamage(data.damage, data.point, false);
+          enemy.applyBurn(weapon.burnDamage * this.damageMultiplier, weapon.burnDuration);
+        }
+        this.hitmarkerTimer = 0.14;
+      }
     } else if (weapon.pelletCount) {
       this.spawnShotgunBlast(muzzleWorld, shotDirection, this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor);
       const enemyHits = new Map();
@@ -6556,16 +6872,15 @@ class Game {
     ui.ammo.textContent = String(this.getActiveWeaponState().ammo);
     ui.ammoMax.textContent = String(this.getActiveWeapon().magSize);
     ui.weaponSlotRifle.textContent = "1 RIFLE";
-    ui.weaponSlotLance.textContent = "2 SHOTGUN";
+    ui.weaponSlotLance.textContent = "2 FLAME";
     ui.reloadState.textContent = this.reloadTimer > 0 ? "RELOADING" : "READY";
     ui.combo.textContent = `COMBO x${this.combo}`;
     ui.weaponSlotRifle.classList.toggle("active", this.activeWeaponId === "rifle");
     ui.weaponSlotLance.classList.toggle("active", this.activeWeaponId === "lance");
     ui.grenadeCount.textContent = `3 GRENADE x${this.grenadeState.ammo}`;
     ui.grenadeCount.classList.toggle("active", this.grenadeState.cooldown <= 0 && this.grenadeState.ammo > 0);
-    const ultPercent = Math.round((this.ultimateState.charge / this.ultimateState.max) * 100);
-    ui.ultimateSlot.textContent = this.ultimateState.charge >= this.ultimateState.max ? "F ULT READY" : `F ULT ${ultPercent}%`;
-    ui.ultimateSlot.classList.toggle("active", this.ultimateState.charge >= this.ultimateState.max);
+    ui.ultimateSlot.textContent = `F ULT x${this.ultimateState.uses}`;
+    ui.ultimateSlot.classList.toggle("active", this.ultimateState.uses > 0);
 
     for (const key of UPGRADE_KEYS) {
       ui[`upgrade${key[0].toUpperCase()}${key.slice(1)}Level`].textContent = `Lv.${this.progression[key]}`;
