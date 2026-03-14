@@ -144,9 +144,9 @@ const WEAPON_DEFS = {
     aimTracerColor: 0xd6ffff,
     fov: 69,
     hipFov: 82,
-    accent: 0x52e9ff,
-    body: 0xf2fcff,
-    grip: 0x1f3450,
+    accent: 0x345978,
+    body: 0xd8e2ec,
+    grip: 0x161c24,
   },
   lance: {
     label: "THUNDER HOWL SHOTGUN",
@@ -316,6 +316,7 @@ class AudioSystem {
       targetGain: 0.11,
     };
     this.musicDrone = null;
+    this.musicOrchestra = null;
   }
 
   unlock() {
@@ -326,7 +327,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.32;
+      this.master.gain.value = 0.38;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -397,6 +398,48 @@ class AudioSystem {
       subGain,
       shimmerGain,
       filter: droneFilter,
+    };
+
+    const orchestraFilter = this.context.createBiquadFilter();
+    orchestraFilter.type = "lowpass";
+    orchestraFilter.frequency.value = 1800;
+
+    const anthemGain = this.context.createGain();
+    anthemGain.gain.value = 0.0001;
+    const choirGain = this.context.createGain();
+    choirGain.gain.value = 0.0001;
+
+    const anthemOscA = this.context.createOscillator();
+    anthemOscA.type = "sawtooth";
+    anthemOscA.frequency.value = midiToFrequency(57);
+
+    const anthemOscB = this.context.createOscillator();
+    anthemOscB.type = "triangle";
+    anthemOscB.frequency.value = midiToFrequency(64);
+
+    const choirOsc = this.context.createOscillator();
+    choirOsc.type = "sine";
+    choirOsc.frequency.value = midiToFrequency(69);
+
+    anthemOscA.connect(anthemGain);
+    anthemOscB.connect(anthemGain);
+    anthemGain.connect(orchestraFilter);
+    orchestraFilter.connect(this.musicBus);
+
+    choirOsc.connect(choirGain);
+    choirGain.connect(orchestraFilter);
+
+    anthemOscA.start();
+    anthemOscB.start();
+    choirOsc.start();
+
+    this.musicOrchestra = {
+      anthemOscA,
+      anthemOscB,
+      choirOsc,
+      anthemGain,
+      choirGain,
+      filter: orchestraFilter,
     };
   }
 
@@ -543,6 +586,35 @@ class AudioSystem {
     });
   }
 
+  grandHit(when, gain = 0.09, boss = false) {
+    this.pulse({
+      frequency: boss ? 82 : 74,
+      slideTo: 34,
+      duration: boss ? 0.48 : 0.38,
+      startGain: gain * 1.15,
+      type: "sawtooth",
+      when,
+      destination: this.musicBus,
+    });
+    this.pulse({
+      frequency: boss ? 392 : 330,
+      slideTo: boss ? 494 : 392,
+      duration: 0.34,
+      startGain: gain * 0.46,
+      type: "triangle",
+      when,
+      destination: this.musicBus,
+    });
+    this.noise(
+      boss ? 0.24 : 0.18,
+      gain * 0.2,
+      when,
+      this.musicBus,
+      "bandpass",
+      boss ? 1400 : 1100,
+    );
+  }
+
   enemyShot() {
     this.pulse({ frequency: 300, slideTo: 520, duration: 0.09, startGain: 0.05, type: "triangle" });
   }
@@ -610,6 +682,10 @@ class AudioSystem {
     }
 
     if (step % 8 === 0) {
+      this.grandHit(when, state.boss ? 0.14 : 0.08 + state.intensity * 0.035, state.boss);
+    }
+
+    if (step % 8 === 0) {
       this.scheduleMusicNote({
         note: chord[0] - 12,
         when,
@@ -623,6 +699,13 @@ class AudioSystem {
         duration: stepDuration * 6.2,
         gain: state.boss ? 0.042 : 0.032,
         type: "triangle",
+      });
+      this.scheduleMusicNote({
+        note: chord[3] + (state.boss ? 12 : 7),
+        when,
+        duration: stepDuration * (state.boss ? 7.8 : 7.2),
+        gain: state.boss ? 0.06 : 0.038 + state.intensity * 0.02,
+        type: state.boss ? "sawtooth" : "triangle",
       });
     }
 
@@ -645,6 +728,16 @@ class AudioSystem {
       gain: 0.052 + state.intensity * 0.03,
       type: state.boss ? "square" : "triangle",
     });
+
+    if (state.intensity > 0.45 || state.boss) {
+      this.scheduleMusicNote({
+        note: chord[(step + 1) % chord.length] + (state.boss ? 19 : 12),
+        when,
+        duration: stepDuration * 1.35,
+        gain: state.boss ? 0.064 : 0.026 + state.intensity * 0.026,
+        type: state.boss ? "sawtooth" : "sine",
+      });
+    }
 
     if (state.intensity > 0.25 || state.boss) {
       this.noise(
@@ -676,10 +769,10 @@ class AudioSystem {
 
     const now = this.context.currentTime;
     const paused = !state.started || state.gameOver || state.paused;
-    const bpm = state.boss ? 142 : state.intensity > 0.72 ? 132 : state.intensity > 0.3 ? 122 : 110;
+    const bpm = state.boss ? 148 : state.intensity > 0.72 ? 136 : state.intensity > 0.3 ? 124 : 112;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.006 : state.boss ? 0.28 : 0.15 + state.intensity * 0.12;
-    const targetFilter = paused ? 1100 : state.boss ? 3000 : 1700 + state.intensity * 1400;
+    const targetGain = paused ? 0.008 : state.boss ? 0.38 : 0.19 + state.intensity * 0.16;
+    const targetFilter = paused ? 1200 : state.boss ? 3600 : 2100 + state.intensity * 1600;
 
     this.music.stepDuration = stepDuration;
     this.music.targetGain = targetGain;
@@ -694,8 +787,8 @@ class AudioSystem {
     if (this.musicDrone) {
       const rootProgression = state.boss ? [45, 43, 48, 50] : [45, 43, 50, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const droneBase = paused ? 0.0001 : state.boss ? 0.095 : 0.05 + state.intensity * 0.04;
-      const shimmerBase = paused ? 0.0001 : state.boss ? 0.04 : 0.018 + state.intensity * 0.02;
+      const droneBase = paused ? 0.0001 : state.boss ? 0.115 : 0.065 + state.intensity * 0.05;
+      const shimmerBase = paused ? 0.0001 : state.boss ? 0.052 : 0.022 + state.intensity * 0.024;
 
       this.musicDrone.subOscA.frequency.cancelScheduledValues(now);
       this.musicDrone.subOscA.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.4);
@@ -717,6 +810,35 @@ class AudioSystem {
       this.musicDrone.filter.frequency.linearRampToValueAtTime(
         paused ? 220 : state.boss ? 520 : 280 + state.intensity * 220,
         now + 0.32,
+      );
+    }
+
+    if (this.musicOrchestra) {
+      const rootProgression = state.boss ? [57, 55, 60, 62] : [57, 55, 62, 60];
+      const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
+      const anthemBase = paused ? 0.0001 : state.boss ? 0.06 : 0.026 + state.intensity * 0.036;
+      const choirBase = paused ? 0.0001 : state.boss ? 0.04 : 0.012 + state.intensity * 0.024;
+
+      this.musicOrchestra.anthemOscA.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.anthemOscA.frequency.linearRampToValueAtTime(midiToFrequency(root), now + 0.42);
+      this.musicOrchestra.anthemOscB.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.anthemOscB.frequency.linearRampToValueAtTime(midiToFrequency(root + 7), now + 0.42);
+      this.musicOrchestra.choirOsc.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.choirOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 14 : 12)), now + 0.42);
+
+      this.musicOrchestra.anthemGain.gain.cancelScheduledValues(now);
+      this.musicOrchestra.anthemGain.gain.setValueAtTime(this.musicOrchestra.anthemGain.gain.value, now);
+      this.musicOrchestra.anthemGain.gain.linearRampToValueAtTime(anthemBase, now + 0.32);
+
+      this.musicOrchestra.choirGain.gain.cancelScheduledValues(now);
+      this.musicOrchestra.choirGain.gain.setValueAtTime(this.musicOrchestra.choirGain.gain.value, now);
+      this.musicOrchestra.choirGain.gain.linearRampToValueAtTime(choirBase, now + 0.32);
+
+      this.musicOrchestra.filter.frequency.cancelScheduledValues(now);
+      this.musicOrchestra.filter.frequency.setValueAtTime(this.musicOrchestra.filter.frequency.value, now);
+      this.musicOrchestra.filter.frequency.linearRampToValueAtTime(
+        paused ? 900 : state.boss ? 2600 : 1800 + state.intensity * 900,
+        now + 0.36,
       );
     }
 
@@ -2252,16 +2374,6 @@ class Game {
     this.addCollidableBox({ x: -18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
     this.addCollidableBox({ x: 18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
 
-    this.addCollidableBox({ x: -7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 0, y: 1.25, z: -7.8, w: 10.4, h: 2.5, d: 4.6, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 0, y: 1.25, z: 7.8, w: 10.4, h: 2.5, d: 4.6, material: this.worldMaterials.wall });
-
-    this.addCollidableBox({ x: -13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
-    this.addCollidableBox({ x: 13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
-    this.addCollidableBox({ x: -13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
-    this.addCollidableBox({ x: 13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
-
     this.addReflectPool(-26, -26);
     this.addReflectPool(26, -26);
     this.addReflectPool(-26, 26);
@@ -2288,14 +2400,8 @@ class Game {
     this.addBanner(0, 4.9, -34.8, 0, 0x72fff0);
     this.addBanner(0, 4.9, 34.8, Math.PI, 0xffd884);
 
-    this.addPeripheralArchitecture();
     this.addWallDressings();
-    this.addArenaCoverRoutes();
-    this.addTraversalRoutes();
-    this.addExpandedOuterLanes();
-    this.addSkylineSetpieces();
-    this.addSpectacleRing();
-    this.addArenaRoof();
+    this.addOpenFestivalArena();
 
     this.addMountains();
     this.addCloud(-36, 20, -48, 5.8);
@@ -2454,6 +2560,86 @@ class Game {
       group.add(frame, inner, lightBar);
       this.scene.add(group);
     }
+  }
+
+  addOpenFestivalArena() {
+    this.addCentralReactor();
+    this.addOverheadTransitLine();
+    this.addHeroBillboard(-42, 10.4, -20, Math.PI / 4, 0x72fff0, "SUNBURST");
+    this.addHeroBillboard(42, 10.4, -20, -Math.PI / 4, 0xffd884, "ARENA");
+    this.addHeroBillboard(-42, 10.4, 20, Math.PI * 0.75, 0xffd884, "SKY RUN");
+    this.addHeroBillboard(42, 10.4, 20, -Math.PI * 0.75, 0x72fff0, "OPEN FIRE");
+    this.addNeonGateway(0, -38.5, 0, 0x72fff0);
+    this.addNeonGateway(0, 38.5, Math.PI, 0xffd884);
+    this.addNeonGateway(-38.5, 0, Math.PI / 2, 0x72fff0);
+    this.addNeonGateway(38.5, 0, -Math.PI / 2, 0xffd884);
+    this.addSolarCanopy(-28, -24, Math.PI / 4);
+    this.addSolarCanopy(28, -24, -Math.PI / 4);
+    this.addSolarCanopy(-28, 24, Math.PI * 0.75);
+    this.addSolarCanopy(28, 24, -Math.PI * 0.75);
+    this.addPergola(0, -29, 0);
+    this.addPergola(0, 29, Math.PI);
+
+    this.addFloorStripe(0, 0, 22, 0.9, 0x86f2ff);
+    this.addFloorStripe(0, 0, 0.9, 22, 0x86f2ff);
+    this.addFloorStripe(-17.2, 0, 6.4, 0.58, 0xffd37f);
+    this.addFloorStripe(17.2, 0, 6.4, 0.58, 0xffd37f);
+    this.addFloorStripe(0, -17.2, 0.58, 6.4, 0xffd37f);
+    this.addFloorStripe(0, 17.2, 0.58, 6.4, 0xffd37f);
+
+    const openCoverBlocks = [
+      { x: 0, z: -13.5, w: 8.8, d: 1.9, h: 1.52, accent: 0x72fff0 },
+      { x: 0, z: 13.5, w: 8.8, d: 1.9, h: 1.52, accent: 0xffd884 },
+      { x: -13.5, z: 0, w: 1.9, d: 8.8, h: 1.52, accent: 0xffd884 },
+      { x: 13.5, z: 0, w: 1.9, d: 8.8, h: 1.52, accent: 0x72fff0 },
+      { x: -19.5, z: -19.5, w: 4.8, d: 2.1, h: 1.36, accent: 0x72fff0 },
+      { x: 19.5, z: -19.5, w: 4.8, d: 2.1, h: 1.36, accent: 0xffd884 },
+      { x: -19.5, z: 19.5, w: 4.8, d: 2.1, h: 1.36, accent: 0xffd884 },
+      { x: 19.5, z: 19.5, w: 4.8, d: 2.1, h: 1.36, accent: 0x72fff0 },
+    ];
+    openCoverBlocks.forEach((block) => this.addOpenCoverBlock(block.x, block.z, block.w, block.d, block.h, block.accent));
+
+    const flankNodes = [
+      { x: -22.2, z: -7.8, w: 3.2, d: 1.6, h: 1.44, accent: 0x72fff0 },
+      { x: 22.2, z: 7.8, w: 3.2, d: 1.6, h: 1.44, accent: 0xffd884 },
+      { x: -7.8, z: 22.2, w: 1.6, d: 3.2, h: 1.44, accent: 0xffd884 },
+      { x: 7.8, z: -22.2, w: 1.6, d: 3.2, h: 1.44, accent: 0x72fff0 },
+    ];
+    flankNodes.forEach((node) => this.addCoverNode(node.x, node.z, node.w, node.d, node.h, node.accent));
+  }
+
+  addOpenCoverBlock(x, z, w, d, h, accent) {
+    const block = this.addCollidableBox({
+      x,
+      y: h * 0.5,
+      z,
+      w,
+      h,
+      d,
+      material: this.worldMaterials.planter,
+    });
+    block.material = this.worldMaterials.planter;
+
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(w + 0.16, 0.12, d + 0.16),
+      this.worldMaterials.trimMetal,
+    );
+    cap.position.set(x, h + 0.08, z);
+    cap.castShadow = true;
+    this.scene.add(cap);
+
+    const glow = new THREE.Mesh(
+      new THREE.BoxGeometry(Math.max(w - 0.44, 0.26), 0.08, Math.max(d - 0.44, 0.26)),
+      new THREE.MeshStandardMaterial({
+        color: accent,
+        emissive: accent,
+        emissiveIntensity: 0.5,
+        roughness: 0.18,
+        metalness: 0.48,
+      }),
+    );
+    glow.position.set(x, h + 0.16, z);
+    this.scene.add(glow);
   }
 
   addArenaCoverRoutes() {
@@ -3593,54 +3779,95 @@ class Game {
     this.playerWeaponPivot.rotation.set(-0.2, 0.08, -0.08);
 
     this.playerShotgunGroup = new THREE.Group();
-    const shotgunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.24, 0.9), this.weaponMaterials.body);
-    shotgunReceiver.position.set(0, 0.02, -0.06);
-    const shotgunBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 1.32), this.weaponMaterials.accent);
-    shotgunBarrel.position.set(0.02, 0.05, -0.94);
-    const shotgunHeatshield = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.52), this.weaponMaterials.body);
-    shotgunHeatshield.position.set(0.02, 0.07, -0.56);
-    const shotgunTube = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 1.12), this.weaponMaterials.accent);
-    shotgunTube.position.set(0.02, -0.06, -0.84);
-    this.playerShotgunPump = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.36), this.weaponMaterials.grip);
-    this.playerShotgunPump.position.set(0.02, -0.02, -0.76);
-    const shotgunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.14), this.weaponMaterials.grip);
-    shotgunGrip.position.set(0.03, -0.2, 0.18);
-    shotgunGrip.rotation.z = -0.14;
-    const shotgunStock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.54), this.weaponMaterials.accent);
-    shotgunStock.position.set(-0.05, 0.02, 0.46);
-    shotgunStock.rotation.y = -0.12;
-    const shotgunButt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.12), this.weaponMaterials.grip);
-    shotgunButt.position.set(-0.08, 0.02, 0.74);
+    const lightGunShellMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf2f5f8,
+      emissive: 0x53789d,
+      emissiveIntensity: 0.08,
+      roughness: 0.24,
+      metalness: 0.74,
+    });
+    const lightGunTrimMaterial = new THREE.MeshStandardMaterial({
+      color: 0x0f141b,
+      emissive: 0x243749,
+      emissiveIntensity: 0.1,
+      roughness: 0.34,
+      metalness: 0.82,
+    });
+    const safetyOrangeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff8b3d,
+      emissive: 0xff8b3d,
+      emissiveIntensity: 0.26,
+      roughness: 0.2,
+      metalness: 0.44,
+    });
+    const receiverCore = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.28, 1.06), this.weaponMaterials.body);
+    receiverCore.position.set(0, 0.02, -0.08);
+    const receiverShell = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.18, 1.2), lightGunShellMaterial);
+    receiverShell.position.set(0, 0.1, -0.16);
+    const sidePanelLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.2, 0.62), lightGunShellMaterial);
+    sidePanelLeft.position.set(0.18, 0.06, -0.28);
+    const sidePanelRight = sidePanelLeft.clone();
+    sidePanelRight.position.x *= -1;
+    const barrelHousing = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.82), this.weaponMaterials.accent);
+    barrelHousing.position.set(0.02, 0.05, -0.98);
+    const barrelShroud = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.56), lightGunShellMaterial);
+    barrelShroud.position.set(0.02, 0.08, -0.84);
+    const muzzleBrake = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.28), lightGunTrimMaterial);
+    muzzleBrake.position.set(0.02, 0.06, -1.52);
+    const underBarrelLamp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.34), safetyOrangeMaterial);
+    underBarrelLamp.position.set(0.02, -0.08, -1.04);
+    const underRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 1.02), lightGunTrimMaterial);
+    underRail.position.set(0.02, -0.02, -0.74);
+    this.playerShotgunPump = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.48), lightGunTrimMaterial);
+    this.playerShotgunPump.position.set(0.02, 0.16, -0.76);
+    const slideCap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.24), safetyOrangeMaterial);
+    slideCap.position.set(0, 0.04, -0.02);
+    this.playerShotgunPump.add(slideCap);
+    const magWell = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.24), this.weaponMaterials.body);
+    magWell.position.set(-0.04, -0.02, 0.02);
     this.playerRifleMagazine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.28), this.weaponMaterials.grip);
     this.playerRifleMagazine.position.set(-0.08, -0.18, -0.18);
     this.playerRifleMagazine.rotation.z = 0.16;
-    const rifleScope = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.42), armorMaterial);
-    rifleScope.position.set(0, 0.26, -0.18);
-    const rifleFinLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.38), armorMaterial);
-    rifleFinLeft.position.set(0.18, 0.08, -0.46);
-    const rifleFinRight = rifleFinLeft.clone();
-    rifleFinRight.position.x *= -1;
-    const rifleCore = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.08, 0.52),
-      new THREE.MeshStandardMaterial({
-        color: 0xb6ffff,
-        emissive: 0x63f3ff,
-        emissiveIntensity: 0.62,
-        roughness: 0.14,
-        metalness: 0.26,
-      }),
+    const rearGrip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.4, 0.18), this.weaponMaterials.grip);
+    rearGrip.position.set(0.03, -0.2, 0.24);
+    rearGrip.rotation.z = -0.16;
+    const triggerGuard = new THREE.Mesh(
+      new THREE.TorusGeometry(0.08, 0.016, 8, 20, Math.PI),
+      lightGunTrimMaterial,
     );
-    rifleCore.position.set(0.02, 0.1, -0.68);
-    const shotgunRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.32), this.weaponMaterials.accent);
-    shotgunRail.position.set(0, 0.19, -0.24);
-    for (let i = 0; i < 3; i += 1) {
-      const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 10), trimMaterial);
-      shell.rotation.z = Math.PI / 2;
-      shell.position.set(0.16, 0, -0.18 + i * 0.14);
-      this.playerShotgunGroup.add(shell);
+    triggerGuard.position.set(0.03, -0.08, 0.15);
+    triggerGuard.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+    const stockBody = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.2, 0.46), this.weaponMaterials.accent);
+    stockBody.position.set(-0.05, 0.03, 0.52);
+    stockBody.rotation.y = -0.08;
+    const stockBrace = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.34), lightGunShellMaterial);
+    stockBrace.position.set(-0.02, 0.14, 0.72);
+    const stockPad = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.14), this.weaponMaterials.grip);
+    stockPad.position.set(-0.08, 0.04, 0.92);
+    const sightRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.84), lightGunTrimMaterial);
+    sightRail.position.set(0, 0.24, -0.34);
+    const opticBase = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.36), armorMaterial);
+    opticBase.position.set(0, 0.32, -0.2);
+    const opticLens = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.28), this.weaponMaterials.accent);
+    opticLens.position.set(0, 0.34, -0.3);
+    const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.08), safetyOrangeMaterial);
+    frontSight.position.set(0.02, 0.22, -1.32);
+    const slideWingLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.28), safetyOrangeMaterial);
+    slideWingLeft.position.set(0.12, 0.18, -0.54);
+    const slideWingRight = slideWingLeft.clone();
+    slideWingRight.position.x *= -1;
+    const ejectionPort = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, 0.18), lightGunTrimMaterial);
+    ejectionPort.position.set(-0.17, 0.08, -0.14);
+    for (let i = 0; i < 2; i += 1) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.16), safetyOrangeMaterial);
+      vent.position.set(0.11, 0.06, -0.96 + i * 0.18);
+      this.playerShotgunGroup.add(vent);
+      const mirrorVent = vent.clone();
+      mirrorVent.position.x *= -1;
+      this.playerShotgunGroup.add(mirrorVent);
     }
     this.playerMuzzleShotgun = new THREE.Object3D();
-    this.playerMuzzleShotgun.position.set(0.02, 0.05, -1.58);
+    this.playerMuzzleShotgun.position.set(0.02, 0.06, -1.72);
     this.shotgunMuzzleFlash = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: this.glowTextures.orange,
@@ -3651,27 +3878,37 @@ class Game {
         blending: THREE.AdditiveBlending,
       }),
     );
-    this.shotgunMuzzleFlash.position.set(0.02, 0.05, -1.52);
+    this.shotgunMuzzleFlash.position.set(0.02, 0.06, -1.66);
     this.shotgunMuzzleFlash.scale.set(0.65, 0.65, 1);
     this.playerShotgunGroup.add(
-      shotgunReceiver,
-      shotgunBarrel,
-      shotgunHeatshield,
-      shotgunTube,
+      receiverCore,
+      receiverShell,
+      sidePanelLeft,
+      sidePanelRight,
+      barrelHousing,
+      barrelShroud,
+      muzzleBrake,
+      underBarrelLamp,
+      underRail,
       this.playerShotgunPump,
-      shotgunGrip,
-      shotgunStock,
-      shotgunButt,
+      magWell,
       this.playerRifleMagazine,
-      rifleScope,
-      rifleFinLeft,
-      rifleFinRight,
-      rifleCore,
-      shotgunRail,
+      rearGrip,
+      triggerGuard,
+      stockBody,
+      stockBrace,
+      stockPad,
+      sightRail,
+      opticBase,
+      opticLens,
+      frontSight,
+      slideWingLeft,
+      slideWingRight,
+      ejectionPort,
       this.playerMuzzleShotgun,
       this.shotgunMuzzleFlash,
     );
-    this.playerShotgunGroup.scale.set(1.16, 1.12, 1.24);
+    this.playerShotgunGroup.scale.set(1.12, 1.08, 1.28);
     this.playerShotgunGroup.position.set(-0.04, 0.05, -0.08);
 
     this.playerCannonGroup = new THREE.Group();
@@ -3756,25 +3993,39 @@ class Game {
     this.weaponGroup.add(this.weaponPivot);
 
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: 0xeef8ff,
-      emissive: 0x59deff,
+      color: 0xd8e2ec,
+      emissive: 0x3b607f,
       emissiveIntensity: 0.08,
-      roughness: 0.22,
-      metalness: 0.82,
+      roughness: 0.26,
+      metalness: 0.78,
     });
     const accentMaterial = new THREE.MeshStandardMaterial({
-      color: 0x101b2a,
-      emissive: 0x46d7ff,
-      emissiveIntensity: 0.28,
-      roughness: 0.18,
-      metalness: 0.9,
+      color: 0x121821,
+      emissive: 0x2e475d,
+      emissiveIntensity: 0.14,
+      roughness: 0.26,
+      metalness: 0.88,
     });
     const gripMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffd6a2,
-      emissive: 0xffc36f,
+      color: 0x181e26,
+      emissive: 0x000000,
+      emissiveIntensity: 0,
+      roughness: 0.54,
+      metalness: 0.16,
+    });
+    const shellMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf2f5f8,
+      emissive: 0x425f7c,
       emissiveIntensity: 0.08,
-      roughness: 0.42,
-      metalness: 0.3,
+      roughness: 0.2,
+      metalness: 0.72,
+    });
+    const safetyOrangeMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff8b3d,
+      emissive: 0xff8b3d,
+      emissiveIntensity: 0.22,
+      roughness: 0.2,
+      metalness: 0.44,
     });
     this.weaponMaterials = {
       body: bodyMaterial,
@@ -3782,42 +4033,70 @@ class Game {
       grip: gripMaterial,
     };
 
-    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.26, 1.1), bodyMaterial);
-    receiver.position.set(0, 0.02, -0.14);
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.28, 1.12), bodyMaterial);
+    receiver.position.set(0, 0.02, -0.12);
 
-    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.13, 1.02), accentMaterial);
-    barrel.position.set(0.02, 0.05, -0.95);
+    const receiverShell = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 1.22), shellMaterial);
+    receiverShell.position.set(0, 0.11, -0.18);
 
-    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.5), bodyMaterial);
-    shroud.position.set(0.02, 0.06, -0.56);
+    const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.98), accentMaterial);
+    barrel.position.set(0.02, 0.06, -1.02);
 
-    const underTube = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.98), accentMaterial);
-    underTube.position.set(0.02, -0.06, -0.88);
+    const shroud = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.22, 0.58), shellMaterial);
+    shroud.position.set(0.02, 0.09, -0.82);
 
-    const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.42), gripMaterial);
-    magazine.position.set(-0.16, -0.05, -0.2);
-    magazine.rotation.z = 0.12;
+    const underTube = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 1.04), accentMaterial);
+    underTube.position.set(0.02, -0.03, -0.8);
 
-    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.42), gripMaterial);
-    pump.position.set(0.02, -0.02, -0.84);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.34), safetyOrangeMaterial);
+    lamp.position.set(0.02, -0.09, -1.08);
 
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.48), accentMaterial);
-    stock.position.set(-0.05, 0.02, 0.5);
-    stock.rotation.y = -0.1;
+    const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.44), gripMaterial);
+    magazine.position.set(-0.16, -0.06, -0.16);
+    magazine.rotation.z = 0.14;
 
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.38, 0.16), gripMaterial);
-    grip.position.set(0.04, -0.22, 0.26);
-    grip.rotation.z = -0.14;
+    const magWell = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.24), bodyMaterial);
+    magWell.position.set(-0.05, -0.02, 0.02);
 
-    const sightBase = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.18), accentMaterial);
-    sightBase.position.set(0, 0.18, -0.26);
+    const pump = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.5), accentMaterial);
+    pump.position.set(0.02, 0.16, -0.76);
+    const slideCap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.22), safetyOrangeMaterial);
+    slideCap.position.set(0, 0.04, -0.04);
+    pump.add(slideCap);
 
-    const sightRing = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.015, 10, 24), bodyMaterial);
-    sightRing.position.set(0, 0.18, -0.48);
-    sightRing.rotation.y = Math.PI / 2;
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.52), accentMaterial);
+    stock.position.set(-0.06, 0.02, 0.56);
+    stock.rotation.y = -0.08;
+
+    const stockCap = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.16), gripMaterial);
+    stockCap.position.set(-0.09, 0.02, 0.86);
+
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.38, 0.18), gripMaterial);
+    grip.position.set(0.04, -0.22, 0.24);
+    grip.rotation.z = -0.16;
+
+    const sightBase = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.86), accentMaterial);
+    sightBase.position.set(0, 0.24, -0.34);
+
+    const sightRing = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.34), shellMaterial);
+    sightRing.position.set(0, 0.33, -0.22);
+
+    const opticLens = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.24), accentMaterial);
+    opticLens.position.set(0, 0.34, -0.32);
+
+    const muzzleBrake = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.18, 0.26), accentMaterial);
+    muzzleBrake.position.set(0.02, 0.06, -1.54);
+
+    const sidePlateLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.62), shellMaterial);
+    sidePlateLeft.position.set(0.2, 0.05, -0.26);
+    const sidePlateRight = sidePlateLeft.clone();
+    sidePlateRight.position.x *= -1;
+
+    const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.08), safetyOrangeMaterial);
+    frontSight.position.set(0.02, 0.21, -1.3);
 
     this.muzzle = new THREE.Object3D();
-    this.muzzle.position.set(0.02, 0.05, -1.44);
+    this.muzzle.position.set(0.02, 0.06, -1.72);
 
     this.muzzleFlash = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -3829,20 +4108,29 @@ class Game {
         blending: THREE.AdditiveBlending,
       }),
     );
-    this.muzzleFlash.position.set(0.02, 0.05, -1.39);
+    this.muzzleFlash.position.set(0.02, 0.06, -1.66);
     this.muzzleFlash.scale.set(0.45, 0.45, 1);
 
     this.weaponPivot.add(
       receiver,
+      receiverShell,
       barrel,
       shroud,
       underTube,
+      lamp,
       magazine,
+      magWell,
       pump,
       stock,
+      stockCap,
       grip,
       sightBase,
       sightRing,
+      opticLens,
+      muzzleBrake,
+      sidePlateLeft,
+      sidePlateRight,
+      frontSight,
       this.muzzle,
       this.muzzleFlash,
     );
@@ -3887,11 +4175,11 @@ class Game {
     this.effects.length = 0;
 
     this.player.velocity.set(0, 0, 0);
-    const spawnPoint = new THREE.Vector3(8.4, CONFIG.playerHeight, 16.4);
+    const spawnPoint = new THREE.Vector3(0, CONFIG.playerHeight, 24);
     spawnPoint.y = this.getGroundHeightAt(spawnPoint, CONFIG.playerHeight);
     this.playerObject.position.copy(spawnPoint);
     this.resolveCircleCollisions(this.playerObject.position, CONFIG.playerRadius);
-    this.lookAngles.yaw = Math.PI;
+    this.lookAngles.yaw = 0;
     this.lookAngles.pitch = 0;
     this.resetTouchLookState();
     this.viewRecoil.pitch = 0;
