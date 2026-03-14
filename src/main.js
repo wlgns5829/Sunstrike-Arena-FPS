@@ -269,7 +269,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.18;
+      this.master.gain.value = 0.24;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -407,6 +407,12 @@ class AudioSystem {
     this.noise(0.2, 0.08);
   }
 
+  bossIncoming() {
+    this.pulse({ frequency: 210, slideTo: 96, duration: 0.34, startGain: 0.18, type: "sawtooth" });
+    this.pulse({ frequency: 460, slideTo: 180, duration: 0.4, startGain: 0.12, type: "square" });
+    this.noise(0.16, 0.055, null, null, "bandpass", 980);
+  }
+
   enemyShot() {
     this.pulse({ frequency: 300, slideTo: 520, duration: 0.09, startGain: 0.05, type: "triangle" });
   }
@@ -472,14 +478,14 @@ class AudioSystem {
         note: chord[0] - 12,
         when,
         duration: stepDuration * 7.4,
-        gain: state.boss ? 0.04 : 0.032,
+        gain: state.boss ? 0.074 : 0.056,
         type: "sine",
       });
       this.scheduleMusicNote({
         note: chord[2],
         when,
         duration: stepDuration * 6.2,
-        gain: state.boss ? 0.022 : 0.018,
+        gain: state.boss ? 0.042 : 0.032,
         type: "triangle",
       });
     }
@@ -489,7 +495,7 @@ class AudioSystem {
         note: chord[0] - 12,
         when,
         duration: stepDuration * (state.boss ? 1.35 : 1.7),
-        gain: state.boss ? 0.07 : 0.055,
+        gain: state.boss ? 0.12 : 0.092,
         type: state.boss ? "sawtooth" : "triangle",
         slideTo: chord[0] - 24,
       });
@@ -500,14 +506,14 @@ class AudioSystem {
       note: arpNote + (state.boss ? 12 : 0),
       when,
       duration: stepDuration * 0.9,
-      gain: 0.028 + state.intensity * 0.016,
+      gain: 0.052 + state.intensity * 0.03,
       type: state.boss ? "square" : "triangle",
     });
 
     if (state.intensity > 0.25 || state.boss) {
       this.noise(
         stepDuration * 0.22,
-        state.boss ? 0.02 : 0.015,
+        state.boss ? 0.032 : 0.022,
         when,
         this.musicBus,
         "bandpass",
@@ -518,7 +524,7 @@ class AudioSystem {
     if (snareSteps.includes(step % 16)) {
       this.noise(
         stepDuration * 0.38,
-        state.boss ? 0.032 : 0.024,
+        state.boss ? 0.05 : 0.038,
         when,
         this.musicBus,
         "highpass",
@@ -534,10 +540,10 @@ class AudioSystem {
 
     const now = this.context.currentTime;
     const paused = !state.started || state.gameOver || state.paused;
-    const bpm = state.boss ? 138 : state.intensity > 0.66 ? 128 : state.intensity > 0.25 ? 118 : 106;
+    const bpm = state.boss ? 142 : state.intensity > 0.72 ? 132 : state.intensity > 0.3 ? 122 : 110;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.018 : state.boss ? 0.12 : 0.05 + state.intensity * 0.055;
-    const targetFilter = paused ? 950 : state.boss ? 2600 : 1500 + state.intensity * 1000;
+    const targetGain = paused ? 0.028 : state.boss ? 0.22 : 0.115 + state.intensity * 0.095;
+    const targetFilter = paused ? 1100 : state.boss ? 3000 : 1700 + state.intensity * 1400;
 
     this.music.stepDuration = stepDuration;
     this.music.targetGain = targetGain;
@@ -1197,6 +1203,7 @@ class Game {
 
     ui.movePad.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.audio.unlock();
       this.mobileInput.move.active = true;
       this.mobileInput.move.id = event.pointerId;
       ui.movePad.setPointerCapture(event.pointerId);
@@ -1225,6 +1232,7 @@ class Game {
 
     ui.lookPad.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.audio.unlock();
       this.mobileInput.look.active = true;
       this.mobileInput.look.id = event.pointerId;
       this.mobileInput.look.lastX = event.clientX;
@@ -1258,6 +1266,7 @@ class Game {
     const bindHold = (element, onValue) => {
       element.addEventListener("pointerdown", (event) => {
         event.preventDefault();
+        this.audio.unlock();
         onValue(true);
       });
       const release = () => onValue(false);
@@ -1275,14 +1284,17 @@ class Game {
 
     ui.mobileJump.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.audio.unlock();
       this.mobileInput.jumpQueued = true;
     });
     ui.mobileReload.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.audio.unlock();
       this.startReload();
     });
     ui.mobileSwap.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      this.audio.unlock();
       this.toggleWeapon();
     });
   }
@@ -2395,8 +2407,8 @@ class Game {
   queueWave() {
     this.wave += 1;
     this.spawnQueue = [];
-    const isBossWave = this.wave % 5 === 0;
-    const totalEnemies = Math.min(6 + this.wave * 2, 18);
+    const isBossWave = this.wave >= 3 && this.wave % 3 === 0;
+    const totalEnemies = isBossWave ? Math.min(4 + this.wave, 11) : Math.min(6 + this.wave * 2, 18);
     const bruiserCount = Math.max(0, Math.floor((this.wave - 1) / 2));
     const strikerCount = Math.max(0, Math.floor(this.wave / 3));
     const roster = [];
@@ -2411,14 +2423,14 @@ class Game {
     for (let i = 0; i < strikerCount; i += 1) {
       roster.push("striker");
     }
-    while (roster.length < totalEnemies + (isBossWave ? 4 : 0)) {
+    while (roster.length < totalEnemies + (isBossWave ? 2 : 0)) {
       roster.push("skirmisher");
     }
 
     roster.forEach((type, index) => {
       const pad = this.spawnPads[index % this.spawnPads.length];
       const jitter = new THREE.Vector3(rand(-1.2, 1.2), 0, rand(-1.2, 1.2));
-      const delay = type === "boss" ? 0.4 : (isBossWave ? 1.8 : 0.35) + index * 0.42;
+      const delay = type === "boss" ? 0.25 : (isBossWave ? 1.45 : 0.35) + index * 0.38;
       this.spawnQueue.push({
         type,
         delay,
@@ -2428,6 +2440,7 @@ class Game {
 
     if (isBossWave) {
       this.showAnnouncement(`BOSS WAVE ${this.wave}`, 2.2, "#ffe3a2");
+      this.audio.bossIncoming();
       ui.objective.textContent = `웨이브 ${this.wave}. Aurora Overseer가 투입됩니다. 보스 코어와 주변 에스코트를 분리해서 처리하세요.`;
       ui.statusNote.textContent = "보스는 큰 탄막을 쏘므로 측면 이동과 ADS 랜스 헤드샷이 특히 중요합니다.";
     } else {
@@ -2445,6 +2458,9 @@ class Game {
     this.enemies.push(enemy);
     if (enemy.type.boss) {
       this.bossEnemy = enemy;
+      this.showAnnouncement(enemy.type.label.toUpperCase(), 1.8, "#ffe7a3");
+      ui.objective.textContent = `BOSS WAVE ${this.wave}. Break the escort ring and collapse the Aurora core.`;
+      ui.statusNote.textContent = "Boss active. Break line of fire with lateral movement, then punish the core.";
     }
   }
 

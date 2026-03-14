@@ -100,6 +100,25 @@ body.touch-mode #game {
   pointer-events: none;
 }
 
+body.touch-mode .hud,
+body.touch-mode .crosshair,
+body.touch-mode .hitmarker,
+body.touch-mode .damage-vignette,
+body.touch-mode .mobile-controls {
+  transition:
+    opacity 160ms ease,
+    visibility 160ms ease;
+}
+
+body.touch-mode #overlay:not(.hidden) ~ .hud,
+body.touch-mode #overlay:not(.hidden) ~ #crosshair,
+body.touch-mode #overlay:not(.hidden) ~ #hitmarker,
+body.touch-mode #overlay:not(.hidden) ~ #damage-vignette,
+body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
+  opacity: 0;
+  visibility: hidden;
+}
+
 .overlay-panel {
   width: min(1160px, 100%);
   max-height: calc(100vh - 48px);
@@ -776,7 +795,7 @@ body.touch-mode #game {
   display: none;
 }
 
-body.touch-mode .mobile-controls {
+body.touch-mode #overlay.hidden ~ .mobile-controls {
   position: fixed;
   inset: 0;
   z-index: 6;
