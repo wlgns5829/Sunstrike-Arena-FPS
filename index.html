@@ -239,12 +239,16 @@
       <div id="look-pad" class="touch-pad look-pad">
         <span class="touch-label">LOOK</span>
       </div>
-      <div class="mobile-button-column">
-        <button id="mobile-fire" class="mobile-button fire">FIRE</button>
-        <button id="mobile-aim" class="mobile-button secondary">ADS</button>
-        <button id="mobile-jump" class="mobile-button utility">JUMP</button>
-        <button id="mobile-reload" class="mobile-button utility">RELOAD</button>
-        <button id="mobile-swap" class="mobile-button utility">SWAP</button>
+      <div class="mobile-action-stack">
+        <div class="mobile-primary-actions">
+          <button id="mobile-fire" class="mobile-button fire primary-circle">FIRE</button>
+          <button id="mobile-reload" class="mobile-button reload primary-circle">RELOAD</button>
+        </div>
+        <div class="mobile-secondary-actions">
+          <button id="mobile-aim" class="mobile-button secondary compact">ADS</button>
+          <button id="mobile-jump" class="mobile-button utility compact">JUMP</button>
+          <button id="mobile-swap" class="mobile-button utility compact">SWAP</button>
+        </div>
       </div>
     </div>
   </div>

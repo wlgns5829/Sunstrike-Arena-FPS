@@ -15,7 +15,7 @@ const CONFIG = {
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
-  touchLookSensitivity: 0.003,
+  touchLookSensitivity: 0.0024,
 };
 
 const ENEMY_TYPES = {
@@ -200,6 +200,10 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function midiToFrequency(note) {
+  return 440 * 2 ** ((note - 69) / 12);
+}
+
 function rand(min, max) {
   return Math.random() * (max - min) + min;
 }
@@ -227,10 +231,34 @@ function makeGlowTexture(inner, outer) {
   return texture;
 }
 
+function makeCanvasTexture(draw, { size = 1024, repeatX = 1, repeatY = 1 } = {}) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  draw(ctx, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  return texture;
+}
+
 class AudioSystem {
   constructor() {
     this.context = null;
     this.master = null;
+    this.sfxBus = null;
+    this.musicBus = null;
+    this.musicFilter = null;
+    this.musicReady = false;
+    this.music = {
+      nextStepTime: 0,
+      step: 0,
+      stepDuration: 0.25,
+      targetGain: 0.11,
+    };
   }
 
   unlock() {
@@ -241,13 +269,40 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.17;
+      this.master.gain.value = 0.18;
       this.master.connect(this.context.destination);
+
+      this.sfxBus = this.context.createGain();
+      this.sfxBus.gain.value = 1;
+      this.sfxBus.connect(this.master);
+
+      this.musicBus = this.context.createGain();
+      this.musicBus.gain.value = 0.0001;
+      this.musicFilter = this.context.createBiquadFilter();
+      this.musicFilter.type = "lowpass";
+      this.musicFilter.frequency.value = 1600;
+      this.musicBus.connect(this.musicFilter);
+      this.musicFilter.connect(this.master);
+      this.initMusic();
     }
 
     if (this.context.state === "suspended") {
       this.context.resume();
     }
+  }
+
+  initMusic() {
+    if (!this.context || !this.musicBus || this.musicReady) {
+      return;
+    }
+
+    this.musicReady = true;
+    this.music.nextStepTime = this.context.currentTime + 0.08;
+    this.music.step = 0;
+  }
+
+  getSfxDestination() {
+    return this.sfxBus || this.master;
   }
 
   pulse({
@@ -257,12 +312,14 @@ class AudioSystem {
     startGain = 0.2,
     endGain = 0.0001,
     slideTo = null,
+    when = null,
+    destination = null,
   }) {
     if (!this.context || !this.master) {
       return;
     }
 
-    const now = this.context.currentTime;
+    const now = when ?? this.context.currentTime;
     const osc = this.context.createOscillator();
     const gain = this.context.createGain();
     osc.type = type;
@@ -273,12 +330,12 @@ class AudioSystem {
     gain.gain.setValueAtTime(startGain, now);
     gain.gain.exponentialRampToValueAtTime(endGain, now + duration);
     osc.connect(gain);
-    gain.connect(this.master);
+    gain.connect(destination || this.getSfxDestination());
     osc.start(now);
     osc.stop(now + duration);
   }
 
-  noise(duration = 0.07, startGain = 0.08) {
+  noise(duration = 0.07, startGain = 0.08, when = null, destination = null, filterType = "highpass", filterFrequency = 700) {
     if (!this.context || !this.master) {
       return;
     }
@@ -292,18 +349,19 @@ class AudioSystem {
     const src = this.context.createBufferSource();
     const filter = this.context.createBiquadFilter();
     const gain = this.context.createGain();
-    const now = this.context.currentTime;
+    const now = when ?? this.context.currentTime;
 
     src.buffer = buffer;
-    filter.type = "highpass";
-    filter.frequency.value = 700;
+    filter.type = filterType;
+    filter.frequency.value = filterFrequency;
     gain.gain.setValueAtTime(startGain, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.master);
+    gain.connect(destination || this.getSfxDestination());
     src.start(now);
+    src.stop(now + duration);
   }
 
   shot(weaponId = "rifle") {
@@ -361,6 +419,145 @@ class AudioSystem {
   waveClear() {
     this.pulse({ frequency: 420, slideTo: 840, duration: 0.18, startGain: 0.06, type: "triangle" });
     this.pulse({ frequency: 530, slideTo: 1020, duration: 0.22, startGain: 0.05, type: "sine" });
+  }
+
+  scheduleMusicNote({
+    note,
+    when,
+    duration,
+    gain = 0.05,
+    type = "triangle",
+    destination = null,
+    slideTo = null,
+  }) {
+    this.pulse({
+      frequency: midiToFrequency(note),
+      when,
+      duration,
+      startGain: gain,
+      endGain: 0.0001,
+      type,
+      slideTo: slideTo ? midiToFrequency(slideTo) : null,
+      destination: destination || this.musicBus,
+    });
+  }
+
+  scheduleMusicStep(step, when, state, stepDuration) {
+    if (!this.musicBus) {
+      return;
+    }
+
+    const progression = state.boss
+      ? [
+          [45, 48, 52, 57],
+          [43, 46, 50, 55],
+          [41, 45, 48, 53],
+          [46, 50, 53, 58],
+        ]
+      : [
+          [45, 48, 52, 57],
+          [41, 45, 48, 53],
+          [36, 40, 43, 48],
+          [43, 47, 50, 55],
+        ];
+    const chord = progression[Math.floor(step / 4) % progression.length];
+    const arpPattern = state.boss
+      ? [0, 2, 1, 3, 2, 1, 0, 2, 1, 3, 2, 1, 0, 2, 1, 3]
+      : [0, 2, 1, 2, 0, 2, 1, 3, 0, 2, 1, 2, 0, 2, 1, 3];
+    const bassSteps = state.boss ? [0, 3, 4, 7, 8, 11, 12, 15] : [0, 4, 8, 12];
+    const snareSteps = state.boss ? [2, 6, 10, 14] : [4, 12];
+
+    if (step % 8 === 0) {
+      this.scheduleMusicNote({
+        note: chord[0] - 12,
+        when,
+        duration: stepDuration * 7.4,
+        gain: state.boss ? 0.04 : 0.032,
+        type: "sine",
+      });
+      this.scheduleMusicNote({
+        note: chord[2],
+        when,
+        duration: stepDuration * 6.2,
+        gain: state.boss ? 0.022 : 0.018,
+        type: "triangle",
+      });
+    }
+
+    if (bassSteps.includes(step % 16)) {
+      this.scheduleMusicNote({
+        note: chord[0] - 12,
+        when,
+        duration: stepDuration * (state.boss ? 1.35 : 1.7),
+        gain: state.boss ? 0.07 : 0.055,
+        type: state.boss ? "sawtooth" : "triangle",
+        slideTo: chord[0] - 24,
+      });
+    }
+
+    const arpNote = chord[arpPattern[step % arpPattern.length]];
+    this.scheduleMusicNote({
+      note: arpNote + (state.boss ? 12 : 0),
+      when,
+      duration: stepDuration * 0.9,
+      gain: 0.028 + state.intensity * 0.016,
+      type: state.boss ? "square" : "triangle",
+    });
+
+    if (state.intensity > 0.25 || state.boss) {
+      this.noise(
+        stepDuration * 0.22,
+        state.boss ? 0.02 : 0.015,
+        when,
+        this.musicBus,
+        "bandpass",
+        state.boss ? 5200 : 4200,
+      );
+    }
+
+    if (snareSteps.includes(step % 16)) {
+      this.noise(
+        stepDuration * 0.38,
+        state.boss ? 0.032 : 0.024,
+        when,
+        this.musicBus,
+        "highpass",
+        1800,
+      );
+    }
+  }
+
+  updateMusic(state) {
+    if (!this.context || !this.musicBus || !this.musicReady) {
+      return;
+    }
+
+    const now = this.context.currentTime;
+    const paused = !state.started || state.gameOver || state.paused;
+    const bpm = state.boss ? 138 : state.intensity > 0.66 ? 128 : state.intensity > 0.25 ? 118 : 106;
+    const stepDuration = 60 / bpm / 4;
+    const targetGain = paused ? 0.018 : state.boss ? 0.12 : 0.05 + state.intensity * 0.055;
+    const targetFilter = paused ? 950 : state.boss ? 2600 : 1500 + state.intensity * 1000;
+
+    this.music.stepDuration = stepDuration;
+    this.music.targetGain = targetGain;
+    this.musicBus.gain.cancelScheduledValues(now);
+    this.musicBus.gain.setValueAtTime(this.musicBus.gain.value, now);
+    this.musicBus.gain.linearRampToValueAtTime(targetGain, now + 0.24);
+
+    this.musicFilter.frequency.cancelScheduledValues(now);
+    this.musicFilter.frequency.setValueAtTime(this.musicFilter.frequency.value, now);
+    this.musicFilter.frequency.linearRampToValueAtTime(targetFilter, now + 0.3);
+
+    if (this.music.nextStepTime < now) {
+      this.music.nextStepTime = now + 0.04;
+    }
+
+    while (this.music.nextStepTime < now + 0.32) {
+      this.scheduleMusicStep(this.music.step, this.music.nextStepTime, state, stepDuration);
+      this.music.nextStepTime += stepDuration;
+      this.music.step = (this.music.step + 1) % 16;
+    }
   }
 }
 
@@ -704,7 +901,11 @@ class Game {
     this.clock = new THREE.Clock();
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x86d7ff);
-    this.scene.fog = new THREE.Fog(0x86d7ff, 34, 120);
+    this.scene.fog = new THREE.Fog(0x90dbff, 68, 190);
+    this.isTouchDevice =
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
+      "ontouchstart" in window;
+    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.isTouchDevice ? 1.5 : 2.6);
 
     this.camera = new THREE.PerspectiveCamera(82, window.innerWidth / window.innerHeight, 0.1, 200);
     this.renderer = new THREE.WebGLRenderer({
@@ -713,32 +914,30 @@ class Game {
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(this.renderPixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 1.04;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.controls = new PointerLockControls(this.camera, document.body);
     this.playerObject = this.controls.getObject();
     this.scene.add(this.playerObject);
 
     this.composer = new EffectComposer(this.renderer);
+    this.composer.setPixelRatio(this.renderPixelRatio);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55,
-      0.45,
-      0.85,
+      this.isTouchDevice ? 0.12 : 0.16,
+      0.16,
+      1.02,
     );
     this.composer.addPass(this.bloomPass);
 
     this.audio = new AudioSystem();
-    this.isTouchDevice =
-      window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
-      "ontouchstart" in window;
     document.body.classList.toggle("touch-mode", this.isTouchDevice);
     this.minimapContext = ui.minimap.getContext("2d");
     this.glowTextures = {
@@ -746,6 +945,7 @@ class Game {
       orange: makeGlowTexture("rgba(255,245,214,0.96)", "rgba(255, 177, 86, 0)"),
       sun: makeGlowTexture("rgba(255,255,255,0.96)", "rgba(255, 234, 162, 0)"),
     };
+    this.worldMaterials = this.createWorldMaterials();
 
     this.environmentRaycastMeshes = [];
     this.enemyRaycastMeshes = [];
@@ -1194,10 +1394,227 @@ class Game {
   }
 
   onResize() {
+    this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.isTouchDevice ? 1.5 : 2.6);
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
+    this.renderer.setPixelRatio(this.renderPixelRatio);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.composer.setPixelRatio(this.renderPixelRatio);
     this.composer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  createWorldMaterials() {
+    const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    const finishTexture = (texture) => {
+      texture.anisotropy = maxAnisotropy;
+      return texture;
+    };
+
+    const groundMap = finishTexture(
+      makeCanvasTexture((ctx, size) => {
+        ctx.fillStyle = "#dbe8ef";
+        ctx.fillRect(0, 0, size, size);
+
+        const tile = size / 10;
+        for (let y = 0; y < 10; y += 1) {
+          for (let x = 0; x < 10; x += 1) {
+            const lightness = 225 + ((x + y) % 3) * 4 + Math.floor(Math.random() * 8);
+            ctx.fillStyle = `rgb(${lightness}, ${lightness + 8}, ${lightness + 12})`;
+            ctx.fillRect(x * tile + 2, y * tile + 2, tile - 4, tile - 4);
+          }
+        }
+
+        ctx.strokeStyle = "rgba(120, 145, 162, 0.35)";
+        ctx.lineWidth = 3;
+        for (let i = 0; i <= 10; i += 1) {
+          ctx.beginPath();
+          ctx.moveTo(i * tile, 0);
+          ctx.lineTo(i * tile, size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i * tile);
+          ctx.lineTo(size, i * tile);
+          ctx.stroke();
+        }
+
+        for (let i = 0; i < 2500; i += 1) {
+          const alpha = Math.random() * 0.06;
+          ctx.fillStyle = `rgba(70, 84, 96, ${alpha})`;
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+      }, { repeatX: 10, repeatY: 10 }),
+    );
+
+    const platformMap = finishTexture(
+      makeCanvasTexture((ctx, size) => {
+        ctx.fillStyle = "#edf4f7";
+        ctx.fillRect(0, 0, size, size);
+
+        const stripe = size / 16;
+        for (let i = 0; i < 16; i += 1) {
+          ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.22)" : "rgba(160, 178, 190, 0.08)";
+          ctx.fillRect(0, i * stripe, size, stripe);
+        }
+
+        ctx.strokeStyle = "rgba(122, 216, 255, 0.18)";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(28, 28, size - 56, size - 56);
+
+        for (let i = 0; i < 1200; i += 1) {
+          const alpha = Math.random() * 0.04;
+          ctx.fillStyle = `rgba(80, 96, 110, ${alpha})`;
+          ctx.fillRect(Math.random() * size, Math.random() * size, 2, 2);
+        }
+      }, { repeatX: 4, repeatY: 4 }),
+    );
+
+    const wallMap = finishTexture(
+      makeCanvasTexture((ctx, size) => {
+        ctx.fillStyle = "#f4f8fa";
+        ctx.fillRect(0, 0, size, size);
+
+        const panel = size / 6;
+        for (let i = 0; i < 6; i += 1) {
+          ctx.fillStyle = i % 2 === 0 ? "rgba(255,255,255,0.24)" : "rgba(185, 204, 216, 0.16)";
+          ctx.fillRect(i * panel + 8, 0, panel - 16, size);
+        }
+
+        ctx.strokeStyle = "rgba(122, 216, 255, 0.18)";
+        ctx.lineWidth = 6;
+        for (let i = 0; i <= 6; i += 1) {
+          ctx.beginPath();
+          ctx.moveTo(i * panel, 0);
+          ctx.lineTo(i * panel, size);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "rgba(255, 199, 115, 0.14)";
+        ctx.fillRect(size * 0.12, size * 0.14, size * 0.76, size * 0.05);
+        ctx.fillRect(size * 0.12, size * 0.81, size * 0.76, size * 0.05);
+      }, { repeatX: 3, repeatY: 1.6 }),
+    );
+
+    const woodMap = finishTexture(
+      makeCanvasTexture((ctx, size) => {
+        ctx.fillStyle = "#9f7d57";
+        ctx.fillRect(0, 0, size, size);
+        const plank = size / 10;
+        for (let i = 0; i < 10; i += 1) {
+          const tone = 128 + Math.floor(Math.random() * 28);
+          ctx.fillStyle = `rgb(${tone + 20}, ${tone + 4}, ${tone - 12})`;
+          ctx.fillRect(0, i * plank, size, plank - 2);
+        }
+        for (let i = 0; i < 1400; i += 1) {
+          const alpha = Math.random() * 0.08;
+          ctx.fillStyle = `rgba(60, 38, 20, ${alpha})`;
+          ctx.fillRect(Math.random() * size, Math.random() * size, size * 0.08, 1);
+        }
+      }, { repeatX: 2, repeatY: 2 }),
+    );
+
+    const solarMap = finishTexture(
+      makeCanvasTexture((ctx, size) => {
+        ctx.fillStyle = "#17314c";
+        ctx.fillRect(0, 0, size, size);
+        const cell = size / 8;
+        ctx.strokeStyle = "rgba(130, 214, 255, 0.34)";
+        ctx.lineWidth = 4;
+        for (let i = 0; i <= 8; i += 1) {
+          ctx.beginPath();
+          ctx.moveTo(i * cell, 0);
+          ctx.lineTo(i * cell, size);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i * cell);
+          ctx.lineTo(size, i * cell);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.fillRect(size * 0.06, size * 0.06, size * 0.88, size * 0.16);
+      }, { repeatX: 1, repeatY: 1 }),
+    );
+
+    return {
+      ground: new THREE.MeshStandardMaterial({
+        color: 0xe6eef2,
+        map: groundMap,
+        roughness: 0.9,
+        metalness: 0.04,
+      }),
+      platform: new THREE.MeshStandardMaterial({
+        color: 0xfafdfd,
+        map: platformMap,
+        roughness: 0.62,
+        metalness: 0.12,
+      }),
+      wall: new THREE.MeshStandardMaterial({
+        color: 0xf5fbff,
+        map: wallMap,
+        emissive: 0x84dfff,
+        emissiveIntensity: 0.05,
+        roughness: 0.46,
+        metalness: 0.18,
+      }),
+      warmWall: new THREE.MeshStandardMaterial({
+        color: 0xfff2de,
+        map: wallMap,
+        emissive: 0xffcc90,
+        emissiveIntensity: 0.05,
+        roughness: 0.44,
+        metalness: 0.14,
+      }),
+      trimMetal: new THREE.MeshStandardMaterial({
+        color: 0xccedf7,
+        emissive: 0x78ebff,
+        emissiveIntensity: 0.12,
+        roughness: 0.22,
+        metalness: 0.86,
+      }),
+      glass: new THREE.MeshPhysicalMaterial({
+        color: 0x91efff,
+        roughness: 0.08,
+        metalness: 0.18,
+        transmission: 0.48,
+        transparent: true,
+        opacity: 0.92,
+        clearcoat: 1,
+        clearcoatRoughness: 0.08,
+      }),
+      wood: new THREE.MeshStandardMaterial({
+        color: 0xb58d62,
+        map: woodMap,
+        roughness: 0.78,
+        metalness: 0.04,
+      }),
+      planter: new THREE.MeshStandardMaterial({
+        color: 0xf0f6f8,
+        map: platformMap,
+        roughness: 0.56,
+        metalness: 0.08,
+      }),
+      foliage: new THREE.MeshStandardMaterial({
+        color: 0x42c684,
+        emissive: 0x1eb37c,
+        emissiveIntensity: 0.08,
+        roughness: 0.74,
+        metalness: 0.04,
+      }),
+      solar: new THREE.MeshStandardMaterial({
+        color: 0x17314c,
+        map: solarMap,
+        roughness: 0.18,
+        metalness: 0.76,
+      }),
+      canopy: new THREE.MeshStandardMaterial({
+        color: 0xe8ffff,
+        emissive: 0x84efff,
+        emissiveIntensity: 0.18,
+        roughness: 0.24,
+        metalness: 0.4,
+        transparent: true,
+        opacity: 0.78,
+      }),
+    };
   }
 
   buildWorld() {
@@ -1267,29 +1684,38 @@ class Game {
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(120, 120),
-      new THREE.MeshStandardMaterial({
-        color: 0xeef7fb,
-        roughness: 0.88,
-        metalness: 0.03,
-      }),
+      this.worldMaterials.ground,
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     this.scene.add(ground);
     this.environmentRaycastMeshes.push(ground);
 
+    const promenadeRing = new THREE.Mesh(
+      new THREE.RingGeometry(27.8, 35.5, 8, 1),
+      this.worldMaterials.platform,
+    );
+    promenadeRing.rotation.x = -Math.PI / 2;
+    promenadeRing.position.y = 0.02;
+    promenadeRing.receiveShadow = true;
+    this.scene.add(promenadeRing);
+
     const arenaPlate = new THREE.Mesh(
       new THREE.CylinderGeometry(26.5, 26.5, 1.6, 8),
-      new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.6,
-        metalness: 0.08,
-      }),
+      this.worldMaterials.platform,
     );
     arenaPlate.position.y = -0.72;
     arenaPlate.receiveShadow = true;
     arenaPlate.castShadow = true;
     this.scene.add(arenaPlate);
+
+    const arenaTrim = new THREE.Mesh(
+      new THREE.TorusGeometry(26.7, 0.18, 14, 48),
+      this.worldMaterials.trimMetal,
+    );
+    arenaTrim.rotation.x = Math.PI / 2;
+    arenaTrim.position.y = 0.18;
+    this.scene.add(arenaTrim);
 
     this.addFloorStripe(0, 0, 19, 1.1, 0x9cecff);
     this.addFloorStripe(0, 0, 1.1, 19, 0x9cecff);
@@ -1298,24 +1724,24 @@ class Game {
     this.addFloorStripe(0, -14.5, 0.6, 4.5, 0xffd37f);
     this.addFloorStripe(0, 14.5, 0.6, 4.5, 0xffd37f);
 
-    this.addCollidableBox({ x: -24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: -24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: -11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: -11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, color: 0xf4fbff, emissive: 0x8defff, emissiveIntensity: 0.08 });
+    this.addCollidableBox({ x: -24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
 
-    this.addCollidableBox({ x: -7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, color: 0xdff7ff, emissive: 0x9feeff, emissiveIntensity: 0.05 });
-    this.addCollidableBox({ x: 7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, color: 0xdff7ff, emissive: 0x9feeff, emissiveIntensity: 0.05 });
-    this.addCollidableBox({ x: 0, y: 1.25, z: -7.8, w: 10.4, h: 2.5, d: 4.6, color: 0xdff7ff, emissive: 0x9feeff, emissiveIntensity: 0.05 });
-    this.addCollidableBox({ x: 0, y: 1.25, z: 7.8, w: 10.4, h: 2.5, d: 4.6, color: 0xdff7ff, emissive: 0x9feeff, emissiveIntensity: 0.05 });
+    this.addCollidableBox({ x: -7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 0, y: 1.25, z: -7.8, w: 10.4, h: 2.5, d: 4.6, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 0, y: 1.25, z: 7.8, w: 10.4, h: 2.5, d: 4.6, material: this.worldMaterials.wall });
 
-    this.addCollidableBox({ x: -13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, color: 0xfff0d8, emissive: 0xffcc8e, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, color: 0xfff0d8, emissive: 0xffcc8e, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: -13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, color: 0xfff0d8, emissive: 0xffcc8e, emissiveIntensity: 0.08 });
-    this.addCollidableBox({ x: 13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, color: 0xfff0d8, emissive: 0xffcc8e, emissiveIntensity: 0.08 });
+    this.addCollidableBox({ x: -13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
+    this.addCollidableBox({ x: 13.6, y: 1.05, z: -13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
+    this.addCollidableBox({ x: -13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
+    this.addCollidableBox({ x: 13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
 
     this.addReflectPool(-18, -18);
     this.addReflectPool(18, -18);
@@ -1343,6 +1769,9 @@ class Game {
     this.addBanner(0, 4.4, -24.6, 0, 0x72fff0);
     this.addBanner(0, 4.4, 24.6, Math.PI, 0xffd884);
 
+    this.addPeripheralArchitecture();
+    this.addWallDressings();
+
     this.addMountains();
     this.addCloud(-36, 20, -48, 5.8);
     this.addCloud(-10, 24, -58, 4.5);
@@ -1369,11 +1798,7 @@ class Game {
   addReflectPool(x, z) {
     const border = new THREE.Mesh(
       new THREE.CylinderGeometry(2.8, 2.8, 0.26, 24),
-      new THREE.MeshStandardMaterial({
-        color: 0xfefefe,
-        roughness: 0.4,
-        metalness: 0.08,
-      }),
+      this.worldMaterials.planter,
     );
     border.position.set(x, 0.13, z);
     border.castShadow = true;
@@ -1403,18 +1828,8 @@ class Game {
   addPalmTree(x, z, scale) {
     const group = new THREE.Group();
 
-    const trunkMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd3b185,
-      roughness: 0.9,
-      metalness: 0.02,
-    });
-    const frondMaterial = new THREE.MeshStandardMaterial({
-      color: 0x31cf90,
-      emissive: 0x1bbf8c,
-      emissiveIntensity: 0.08,
-      roughness: 0.72,
-      metalness: 0.04,
-    });
+    const trunkMaterial = this.worldMaterials.wood;
+    const frondMaterial = this.worldMaterials.foliage;
 
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * scale, 0.28 * scale, 5.3 * scale, 10), trunkMaterial);
     trunk.position.y = 2.65 * scale;
@@ -1458,6 +1873,187 @@ class Game {
       banner.rotation.z = Math.sin(time * 1.8 + x * 0.05 + z * 0.05) * 0.05;
       banner.material.opacity = 0.82 + Math.sin(time * 3 + x) * 0.08;
     });
+  }
+
+  addPeripheralArchitecture() {
+    this.addPergola(0, -30, 0);
+    this.addPergola(0, 30, Math.PI);
+    this.addPergola(-30, 0, Math.PI / 2);
+    this.addPergola(30, 0, -Math.PI / 2);
+
+    this.addSolarCanopy(-30, -24, Math.PI / 4);
+    this.addSolarCanopy(30, -24, -Math.PI / 4);
+    this.addSolarCanopy(-30, 24, Math.PI * 0.75);
+    this.addSolarCanopy(30, 24, -Math.PI * 0.75);
+
+    this.addPlanterBox(-20, -18, 5.4, 2);
+    this.addPlanterBox(20, -18, 5.4, 2);
+    this.addPlanterBox(-20, 18, 5.4, 2);
+    this.addPlanterBox(20, 18, 5.4, 2);
+    this.addPlanterBox(-18, -20, 2, 5.4);
+    this.addPlanterBox(18, -20, 2, 5.4);
+    this.addPlanterBox(-18, 20, 2, 5.4);
+    this.addPlanterBox(18, 20, 2, 5.4);
+  }
+
+  addWallDressings() {
+    const placements = [
+      { x: -23.02, z: -14, rotationY: Math.PI / 2 },
+      { x: -23.02, z: 0, rotationY: Math.PI / 2 },
+      { x: -23.02, z: 14, rotationY: Math.PI / 2 },
+      { x: 23.02, z: -14, rotationY: -Math.PI / 2 },
+      { x: 23.02, z: 0, rotationY: -Math.PI / 2 },
+      { x: 23.02, z: 14, rotationY: -Math.PI / 2 },
+      { x: -14, z: -23.02, rotationY: 0 },
+      { x: 0, z: -23.02, rotationY: 0 },
+      { x: 14, z: -23.02, rotationY: 0 },
+      { x: -14, z: 23.02, rotationY: Math.PI },
+      { x: 0, z: 23.02, rotationY: Math.PI },
+      { x: 14, z: 23.02, rotationY: Math.PI },
+    ];
+
+    for (const placement of placements) {
+      const group = new THREE.Group();
+      group.position.set(placement.x, 0, placement.z);
+      group.rotation.y = placement.rotationY;
+
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.5, 0.18), this.worldMaterials.trimMetal);
+      frame.position.y = 2.35;
+      const inner = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 2.6), this.worldMaterials.glass);
+      inner.position.set(0, 2.28, 0.12);
+
+      const lightBar = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.12, 0.1), this.worldMaterials.trimMetal);
+      lightBar.position.set(0, 3.82, 0.18);
+
+      group.add(frame, inner, lightBar);
+      this.scene.add(group);
+    }
+  }
+
+  addPergola(x, z, rotationY) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+
+    const pillarPositions = [
+      [-3, 3],
+      [3, 3],
+      [-3, -3],
+      [3, -3],
+    ];
+
+    for (const [px, pz] of pillarPositions) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 4.6, 0.42), this.worldMaterials.warmWall);
+      pillar.position.set(px, 2.3, pz);
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      group.add(pillar);
+    }
+
+    const beamA = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.28, 0.42), this.worldMaterials.trimMetal);
+    beamA.position.set(0, 4.52, 3);
+    const beamB = beamA.clone();
+    beamB.position.z = -3;
+    const beamC = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 6.4), this.worldMaterials.trimMetal);
+    beamC.position.set(3, 4.52, 0);
+    const beamD = beamC.clone();
+    beamD.position.x = -3;
+    group.add(beamA, beamB, beamC, beamD);
+
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.18, 6.2), this.worldMaterials.canopy);
+    roof.position.y = 4.72;
+    group.add(roof);
+
+    for (let i = -2; i <= 2; i += 1) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.1, 0.18), this.worldMaterials.wood);
+      slat.position.set(0, 4.9, i * 1.2);
+      group.add(slat);
+    }
+
+    this.addBench(group, -1.8, 0, Math.PI / 2);
+    this.addBench(group, 1.8, 0, -Math.PI / 2);
+    this.scene.add(group);
+  }
+
+  addSolarCanopy(x, z, rotationY) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+
+    for (const side of [-1, 1]) {
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(0.34, 5.6, 0.34), this.worldMaterials.trimMetal);
+      mast.position.set(side * 1.6, 2.8, 0);
+      mast.castShadow = true;
+      mast.receiveShadow = true;
+      group.add(mast);
+    }
+
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.18, 0.28), this.worldMaterials.trimMetal);
+    arm.position.set(0, 5.2, 0);
+    group.add(arm);
+
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.12, 2.8), this.worldMaterials.solar);
+    panel.position.set(0, 5.05, -0.3);
+    panel.rotation.x = -0.36;
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    group.add(panel);
+
+    this.scene.add(group);
+  }
+
+  addPlanterBox(x, z, w, d) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    const planter = new THREE.Mesh(new THREE.BoxGeometry(w, 1, d), this.worldMaterials.planter);
+    planter.position.y = 0.5;
+    planter.castShadow = true;
+    planter.receiveShadow = true;
+    group.add(planter);
+
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(w - 0.4, 0.12, d - 0.4),
+      new THREE.MeshStandardMaterial({ color: 0x66533c, roughness: 1, metalness: 0 }),
+    );
+    soil.position.y = 1.02;
+    group.add(soil);
+
+    const plantCount = Math.max(3, Math.round((w + d) * 0.7));
+    for (let i = 0; i < plantCount; i += 1) {
+      const plant = new THREE.Mesh(
+        new THREE.ConeGeometry(rand(0.18, 0.42), rand(1.2, 2.2), 6),
+        this.worldMaterials.foliage,
+      );
+      plant.position.set(rand(-w * 0.35, w * 0.35), rand(1.5, 2.2), rand(-d * 0.35, d * 0.35));
+      plant.castShadow = true;
+      group.add(plant);
+    }
+
+    this.scene.add(group);
+  }
+
+  addBench(parent, x, z, rotationY) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.14, 0.42), this.worldMaterials.wood);
+    seat.position.set(0, 0.65, 0);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.14, 0.36), this.worldMaterials.wood);
+    back.position.set(0, 1.1, -0.14);
+    back.rotation.x = -0.32;
+
+    for (const side of [-1, 1]) {
+      const legFront = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), this.worldMaterials.trimMetal);
+      legFront.position.set(side * 0.72, 0.3, 0.14);
+      const legBack = legFront.clone();
+      legBack.position.z = -0.14;
+      group.add(legFront, legBack);
+    }
+
+    group.add(seat, back);
+    parent.add(group);
   }
 
   addMountains() {
@@ -1567,30 +2163,35 @@ class Game {
     h,
     d,
     color,
+    material = null,
     emissive = 0x000000,
     emissiveIntensity = 0,
+    collidable = true,
   }) {
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshStandardMaterial({
-        color,
-        emissive,
-        emissiveIntensity,
-        roughness: 0.48,
-        metalness: 0.15,
-      }),
+      material ||
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive,
+          emissiveIntensity,
+          roughness: 0.48,
+          metalness: 0.15,
+        }),
     );
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.scene.add(mesh);
-    this.environmentRaycastMeshes.push(mesh);
-    this.collisionVolumes.push({
-      minX: x - w / 2 - 0.02,
-      maxX: x + w / 2 + 0.02,
-      minZ: z - d / 2 - 0.02,
-      maxZ: z + d / 2 + 0.02,
-    });
+    if (collidable) {
+      this.environmentRaycastMeshes.push(mesh);
+      this.collisionVolumes.push({
+        minX: x - w / 2 - 0.02,
+        maxX: x + w / 2 + 0.02,
+        minZ: z - d / 2 - 0.02,
+        maxZ: z + d / 2 + 0.02,
+      });
+    }
     return mesh;
   }
 
@@ -2402,6 +3003,20 @@ class Game {
     if (this.announcement.time > 0) {
       this.announcement.time -= dt;
     }
+
+    const intensity = clamp(
+      (this.enemies.length + this.spawnQueue.length * 0.28 + (this.bossEnemy ? 6 : 0)) / 14,
+      0,
+      1,
+    );
+    this.audio.updateMusic({
+      started: this.started,
+      gameOver: this.gameOver,
+      paused: this.started && !this.isGameplayActive(),
+      boss: Boolean(this.bossEnemy),
+      intensity,
+      wave: this.wave,
+    });
   }
 
   updateMinimap() {
