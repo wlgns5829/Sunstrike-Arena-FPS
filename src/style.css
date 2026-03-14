@@ -104,6 +104,8 @@ body.touch-mode .hud,
 body.touch-mode .crosshair,
 body.touch-mode .hitmarker,
 body.touch-mode .damage-vignette,
+body.touch-mode .damage-flash,
+body.touch-mode .damage-direction,
 body.touch-mode .mobile-controls {
   transition:
     opacity 160ms ease,
@@ -114,6 +116,8 @@ body.touch-mode #overlay:not(.hidden) ~ .hud,
 body.touch-mode #overlay:not(.hidden) ~ #crosshair,
 body.touch-mode #overlay:not(.hidden) ~ #hitmarker,
 body.touch-mode #overlay:not(.hidden) ~ #damage-vignette,
+body.touch-mode #overlay:not(.hidden) ~ #damage-flash,
+body.touch-mode #overlay:not(.hidden) ~ #damage-direction,
 body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
   opacity: 0;
   visibility: hidden;
@@ -512,6 +516,76 @@ body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
   text-align: center;
 }
 
+.player-vitals {
+  width: min(360px, calc(100vw - 40px));
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: rgba(6, 19, 32, 0.66);
+  border: 1px solid rgba(143, 234, 255, 0.18);
+  box-shadow: 0 18px 44px rgba(4, 10, 20, 0.22);
+  backdrop-filter: blur(12px);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.player-vitals.critical {
+  border-color: rgba(255, 161, 121, 0.5);
+  box-shadow:
+    0 18px 44px rgba(4, 10, 20, 0.22),
+    0 0 30px rgba(255, 122, 104, 0.18);
+  transform: scale(1.02);
+}
+
+.player-vitals-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-family: "Orbitron", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.player-vitals-head strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.player-vitals-bars {
+  display: grid;
+  gap: 8px;
+}
+
+.player-vitals-shell {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.player-vitals-shell.shield {
+  height: 8px;
+}
+
+.player-vitals-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  transition: width 90ms linear;
+}
+
+.player-vitals-fill.health {
+  background: linear-gradient(90deg, #ff8678 0%, #ffd27b 100%);
+}
+
+.player-vitals-fill.shield {
+  background: linear-gradient(90deg, #4bd5ff 0%, #8dfff1 100%);
+}
+
 .boss-hud {
   width: min(520px, calc(100vw - 40px));
   padding: 12px 14px;
@@ -791,6 +865,49 @@ body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
   transition: opacity 80ms linear;
 }
 
+.damage-flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.2), rgba(255, 128, 108, 0.2) 24%, rgba(255, 50, 70, 0) 60%),
+    radial-gradient(circle at center, rgba(255, 210, 170, 0.2), transparent 72%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 70ms linear;
+}
+
+.damage-direction {
+  --rotation: 0rad;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 180px;
+  height: 180px;
+  margin-left: -90px;
+  margin-top: -90px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transform: rotate(var(--rotation));
+  transition: opacity 80ms linear;
+}
+
+.damage-direction::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 70px;
+  height: 26px;
+  margin-left: -35px;
+  border-radius: 999px 999px 0 0;
+  border-top: 4px solid rgba(255, 244, 208, 0.96);
+  background: linear-gradient(180deg, rgba(255, 166, 103, 0.28), rgba(255, 83, 83, 0));
+  box-shadow: 0 0 18px rgba(255, 161, 108, 0.34);
+}
+
 .mobile-controls {
   display: none;
 }
@@ -1038,6 +1155,7 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
   }
 
   .objective,
+  .player-vitals,
   .announcer,
   .boss-hud {
     max-width: calc(100vw - 28px);
