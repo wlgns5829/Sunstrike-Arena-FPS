@@ -277,7 +277,8 @@ const ui = {
   mobileAim: document.querySelector("#mobile-aim"),
   mobileJump: document.querySelector("#mobile-jump"),
   mobileReload: document.querySelector("#mobile-reload"),
-  mobileSwap: document.querySelector("#mobile-swap"),
+  mobileWeaponRifle: document.querySelector("#mobile-weapon-rifle"),
+  mobileWeaponLance: document.querySelector("#mobile-weapon-lance"),
   mobileGrenade: document.querySelector("#mobile-grenade"),
   mobileUltimate: document.querySelector("#mobile-ultimate"),
   debugHud: document.querySelector("#debug-hud"),
@@ -1741,7 +1742,7 @@ class Game {
       look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-mobile-layout-c";
+    this.debugBuild = "2026-03-14-mobile-combat-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -2244,10 +2245,15 @@ class Game {
       this.audio.unlock();
       this.startReload();
     });
-    ui.mobileSwap.addEventListener("pointerdown", (event) => {
+    ui.mobileWeaponRifle.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       this.audio.unlock();
-      this.toggleWeapon();
+      this.setActiveWeapon("rifle");
+    });
+    ui.mobileWeaponLance.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      this.audio.unlock();
+      this.setActiveWeapon("lance");
     });
     ui.mobileGrenade.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -5391,10 +5397,10 @@ class Game {
     this.wave += 1;
     this.spawnQueue = [];
     const isBossWave = this.wave >= 3 && this.wave % 3 === 0;
-    const totalEnemies = isBossWave ? Math.min(6 + this.wave, 14) : Math.min(8 + this.wave * 2, 22);
-    const bruiserCount = Math.max(0, Math.floor(this.wave / 2));
-    const strikerCount = Math.max(1, Math.floor((this.wave + 1) / 2));
-    const gliderCount = Math.min(isBossWave ? 2 : 3, Math.max(1, Math.floor((this.wave + 1) / 3)));
+    const totalEnemies = isBossWave ? Math.min(10 + this.wave * 2, 22) : Math.min(12 + this.wave * 3, 34);
+    const bruiserCount = Math.max(1, Math.floor((this.wave + 1) / 2));
+    const strikerCount = Math.max(2, Math.floor((this.wave + 2) / 2));
+    const gliderCount = Math.min(isBossWave ? 3 : 5, Math.max(1, Math.floor((this.wave + 2) / 2)));
     const roster = [];
 
     if (isBossWave) {
@@ -5417,7 +5423,7 @@ class Game {
     roster.forEach((type, index) => {
       const pad = this.spawnPads[index % this.spawnPads.length];
       const jitter = new THREE.Vector3(rand(-1.2, 1.2), 0, rand(-1.2, 1.2));
-      const delay = type === "boss" ? 0.25 : (isBossWave ? 0.95 : 0.18) + index * (isBossWave ? 0.24 : 0.17);
+      const delay = type === "boss" ? 0.2 : (isBossWave ? 0.52 : 0.08) + index * (isBossWave ? 0.12 : 0.08);
       this.spawnQueue.push({
         type,
         delay,
@@ -7083,10 +7089,13 @@ class Game {
     ui.combo.textContent = `COMBO x${this.combo}`;
     ui.weaponSlotRifle.classList.toggle("active", this.activeWeaponId === "rifle");
     ui.weaponSlotLance.classList.toggle("active", this.activeWeaponId === "lance");
+    ui.mobileWeaponRifle?.classList.toggle("active", this.activeWeaponId === "rifle");
+    ui.mobileWeaponLance?.classList.toggle("active", this.activeWeaponId === "lance");
     ui.grenadeCount.textContent = `3 GRENADE x${this.grenadeState.ammo}`;
     ui.grenadeCount.classList.toggle("active", this.grenadeState.cooldown <= 0 && this.grenadeState.ammo > 0);
     ui.ultimateSlot.textContent = `F ULT x${this.ultimateState.uses}`;
     ui.ultimateSlot.classList.toggle("active", this.ultimateState.uses > 0);
+    ui.mobileUltimate?.classList.toggle("active", this.ultimateState.uses > 0);
 
     for (const key of UPGRADE_KEYS) {
       ui[`upgrade${key[0].toUpperCase()}${key.slice(1)}Level`].textContent = `Lv.${this.progression[key]}`;
