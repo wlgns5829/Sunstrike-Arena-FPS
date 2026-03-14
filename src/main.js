@@ -6,7 +6,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 
 const UP = new THREE.Vector3(0, 1, 0);
 const CONFIG = {
-  arenaLimit: 24,
+  arenaLimit: 34,
   playerHeight: 1.74,
   playerRadius: 0.58,
   gravity: 26,
@@ -19,6 +19,9 @@ const CONFIG = {
   touchLookDeadzone: 0.4,
   stepAssistHeight: 0.48,
   vaultBoost: 5.6,
+  thirdPersonDistance: 4.9,
+  thirdPersonHeight: 0.68,
+  thirdPersonShoulder: 1.05,
 };
 
 const ENEMY_TYPES = {
@@ -325,7 +328,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.24;
+      this.master.gain.value = 0.32;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -470,9 +473,12 @@ class AudioSystem {
       return;
     }
 
-    this.pulse({ frequency: 170, slideTo: 58, duration: 0.09, startGain: 0.2, type: "sawtooth" });
-    this.pulse({ frequency: 520, slideTo: 180, duration: 0.05, startGain: 0.05, type: "triangle" });
-    this.noise(0.07, 0.06);
+    const now = this.context?.currentTime ?? null;
+    this.pulse({ frequency: 118, slideTo: 42, duration: 0.18, startGain: 0.28, type: "sawtooth", when: now });
+    this.pulse({ frequency: 210, slideTo: 74, duration: 0.11, startGain: 0.15, type: "triangle", when: now });
+    this.pulse({ frequency: 980, slideTo: 310, duration: 0.05, startGain: 0.11, type: "square", when: now });
+    this.noise(0.11, 0.13, now, null, "bandpass", 1650);
+    this.noise(0.18, 0.045, now ? now + 0.02 : null, null, "lowpass", 720);
   }
 
   reload(weaponId = "rifle") {
@@ -484,6 +490,12 @@ class AudioSystem {
 
     this.pulse({ frequency: 540, slideTo: 220, duration: 0.11, startGain: 0.08, type: "triangle" });
     this.pulse({ frequency: 360, slideTo: 640, duration: 0.09, startGain: 0.05, type: "sine" });
+  }
+
+  pump() {
+    this.pulse({ frequency: 240, slideTo: 110, duration: 0.08, startGain: 0.08, type: "triangle" });
+    this.noise(0.05, 0.03, null, null, "bandpass", 2100);
+    this.pulse({ frequency: 620, slideTo: 360, duration: 0.04, startGain: 0.03, type: "square" });
   }
 
   hit() {
@@ -1239,7 +1251,7 @@ class Game {
     this.clock = new THREE.Clock();
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x86d7ff);
-    this.scene.fog = new THREE.Fog(0x90dbff, 68, 190);
+    this.scene.fog = new THREE.Fog(0x90dbff, 82, 232);
     this.isTouchDevice =
       window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
       "ontouchstart" in window;
@@ -1291,10 +1303,12 @@ class Game {
       cyan: makeGlowTexture("rgba(255,255,255,0.95)", "rgba(70, 226, 255, 0)"),
       orange: makeGlowTexture("rgba(255,245,214,0.96)", "rgba(255, 177, 86, 0)"),
       sun: makeGlowTexture("rgba(255,255,255,0.96)", "rgba(255, 234, 162, 0)"),
+      smoke: makeGlowTexture("rgba(255,255,255,0.44)", "rgba(255,255,255,0)"),
     };
     this.worldMaterials = this.createWorldMaterials();
 
     this.environmentRaycastMeshes = [];
+    this.cameraCollisionMeshes = [];
     this.enemyRaycastMeshes = [];
     this.collisionVolumes = [];
     this.walkSurfaces = [];
@@ -1468,6 +1482,16 @@ class Game {
     this.weaponMaterials.accent.emissive.setHex(weapon.accent);
     this.weaponMaterials.grip.color.setHex(weapon.grip);
     this.muzzleFlash.material.color.setHex(weapon.tracerColor);
+    if (this.shotgunMuzzleFlash) {
+      this.shotgunMuzzleFlash.material.color.setHex(WEAPON_DEFS.rifle.tracerColor);
+    }
+    if (this.cannonMuzzleFlash) {
+      this.cannonMuzzleFlash.material.color.setHex(WEAPON_DEFS.lance.tracerColor);
+    }
+    if (this.playerShotgunGroup && this.playerCannonGroup) {
+      this.playerShotgunGroup.visible = this.activeWeaponId === "rifle";
+      this.playerCannonGroup.visible = this.activeWeaponId === "lance";
+    }
   }
 
   setActiveWeapon(weaponId) {
@@ -1558,6 +1582,7 @@ class Game {
     if (!this.started || this.gameOver) {
       this.resetRun();
     }
+    this.snapThirdPersonCamera();
 
     if (this.isTouchDevice) {
       ui.overlay.classList.add("hidden");
@@ -2084,12 +2109,12 @@ class Game {
     sun.position.set(18, 28, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(this.lowSpecMode ? 1024 : 1536, this.lowSpecMode ? 1024 : 1536);
-    sun.shadow.camera.left = -45;
-    sun.shadow.camera.right = 45;
-    sun.shadow.camera.top = 45;
-    sun.shadow.camera.bottom = -45;
+    sun.shadow.camera.left = -62;
+    sun.shadow.camera.right = 62;
+    sun.shadow.camera.top = 62;
+    sun.shadow.camera.bottom = -62;
     sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 100;
+    sun.shadow.camera.far = 132;
     sun.shadow.bias = -0.00015;
     this.scene.add(sun);
 
@@ -2141,7 +2166,7 @@ class Game {
     this.scene.add(this.sunSprite);
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(120, 120),
+      new THREE.PlaneGeometry(170, 170),
       this.worldMaterials.ground,
     );
     ground.rotation.x = -Math.PI / 2;
@@ -2150,7 +2175,7 @@ class Game {
     this.environmentRaycastMeshes.push(ground);
 
     const promenadeRing = new THREE.Mesh(
-      new THREE.RingGeometry(27.8, 35.5, 8, 1),
+      new THREE.RingGeometry(40.8, 50.5, 8, 1),
       this.worldMaterials.platform,
     );
     promenadeRing.rotation.x = -Math.PI / 2;
@@ -2159,7 +2184,7 @@ class Game {
     this.scene.add(promenadeRing);
 
     const arenaPlate = new THREE.Mesh(
-      new THREE.CylinderGeometry(26.5, 26.5, 1.6, 8),
+      new THREE.CylinderGeometry(38.5, 38.5, 1.8, 8),
       this.worldMaterials.platform,
     );
     arenaPlate.position.y = -0.72;
@@ -2168,28 +2193,28 @@ class Game {
     this.scene.add(arenaPlate);
 
     const arenaTrim = new THREE.Mesh(
-      new THREE.TorusGeometry(26.7, 0.18, 14, 48),
+      new THREE.TorusGeometry(38.7, 0.18, 14, 64),
       this.worldMaterials.trimMetal,
     );
     arenaTrim.rotation.x = Math.PI / 2;
     arenaTrim.position.y = 0.18;
     this.scene.add(arenaTrim);
 
-    this.addFloorStripe(0, 0, 19, 1.1, 0x9cecff);
-    this.addFloorStripe(0, 0, 1.1, 19, 0x9cecff);
-    this.addFloorStripe(-14.5, 0, 4.5, 0.6, 0xffd37f);
-    this.addFloorStripe(14.5, 0, 4.5, 0.6, 0xffd37f);
-    this.addFloorStripe(0, -14.5, 0.6, 4.5, 0xffd37f);
-    this.addFloorStripe(0, 14.5, 0.6, 4.5, 0xffd37f);
+    this.addFloorStripe(0, 0, 27, 1.1, 0x9cecff);
+    this.addFloorStripe(0, 0, 1.1, 27, 0x9cecff);
+    this.addFloorStripe(-21.5, 0, 7.2, 0.72, 0xffd37f);
+    this.addFloorStripe(21.5, 0, 7.2, 0.72, 0xffd37f);
+    this.addFloorStripe(0, -21.5, 0.72, 7.2, 0xffd37f);
+    this.addFloorStripe(0, 21.5, 0.72, 7.2, 0xffd37f);
 
-    this.addCollidableBox({ x: -24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 24, y: 2.25, z: -11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 24, y: 2.25, z: 11, w: 2, h: 4.5, d: 18, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 11, y: 2.25, z: -24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 11, y: 2.25, z: 24, w: 18, h: 4.5, d: 2, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -34, y: 2.4, z: -18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -34, y: 2.4, z: 18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 34, y: 2.4, z: -18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 34, y: 2.4, z: 18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -18, y: 2.4, z: -34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 18, y: 2.4, z: -34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
 
     this.addCollidableBox({ x: -7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
     this.addCollidableBox({ x: 7.8, y: 1.25, z: 0, w: 4.6, h: 2.5, d: 10.4, material: this.worldMaterials.wall });
@@ -2201,37 +2226,39 @@ class Game {
     this.addCollidableBox({ x: -13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
     this.addCollidableBox({ x: 13.6, y: 1.05, z: 13.6, w: 4.6, h: 2.1, d: 4.6, material: this.worldMaterials.warmWall });
 
-    this.addReflectPool(-18, -18);
-    this.addReflectPool(18, -18);
-    this.addReflectPool(-18, 18);
-    this.addReflectPool(18, 18);
+    this.addReflectPool(-26, -26);
+    this.addReflectPool(26, -26);
+    this.addReflectPool(-26, 26);
+    this.addReflectPool(26, 26);
 
-    this.createSpawnPad(new THREE.Vector3(-16.5, 0.12, -16.5));
-    this.createSpawnPad(new THREE.Vector3(16.5, 0.12, -16.5));
-    this.createSpawnPad(new THREE.Vector3(-16.5, 0.12, 16.5));
-    this.createSpawnPad(new THREE.Vector3(16.5, 0.12, 16.5));
-    this.createSpawnPad(new THREE.Vector3(0, 0.12, -18.5));
-    this.createSpawnPad(new THREE.Vector3(0, 0.12, 18.5));
+    this.createSpawnPad(new THREE.Vector3(-28.5, 0.12, -28.5));
+    this.createSpawnPad(new THREE.Vector3(28.5, 0.12, -28.5));
+    this.createSpawnPad(new THREE.Vector3(-28.5, 0.12, 28.5));
+    this.createSpawnPad(new THREE.Vector3(28.5, 0.12, 28.5));
+    this.createSpawnPad(new THREE.Vector3(0, 0.12, -31.5));
+    this.createSpawnPad(new THREE.Vector3(0, 0.12, 31.5));
 
-    this.addPalmTree(-20, -4, 1.15);
-    this.addPalmTree(-20, 4, 1.05);
-    this.addPalmTree(20, -4, 1.15);
-    this.addPalmTree(20, 4, 1.05);
-    this.addPalmTree(-4, -20, 1.05);
-    this.addPalmTree(4, -20, 1.05);
-    this.addPalmTree(-4, 20, 1.05);
-    this.addPalmTree(4, 20, 1.05);
+    this.addPalmTree(-30, -6, 1.18);
+    this.addPalmTree(-30, 6, 1.08);
+    this.addPalmTree(30, -6, 1.18);
+    this.addPalmTree(30, 6, 1.08);
+    this.addPalmTree(-6, -30, 1.08);
+    this.addPalmTree(6, -30, 1.08);
+    this.addPalmTree(-6, 30, 1.08);
+    this.addPalmTree(6, 30, 1.08);
 
-    this.addBanner(-24.6, 4.4, 0, Math.PI / 2, 0x72fff0);
-    this.addBanner(24.6, 4.4, 0, -Math.PI / 2, 0xffd884);
-    this.addBanner(0, 4.4, -24.6, 0, 0x72fff0);
-    this.addBanner(0, 4.4, 24.6, Math.PI, 0xffd884);
+    this.addBanner(-34.8, 4.9, 0, Math.PI / 2, 0x72fff0);
+    this.addBanner(34.8, 4.9, 0, -Math.PI / 2, 0xffd884);
+    this.addBanner(0, 4.9, -34.8, 0, 0x72fff0);
+    this.addBanner(0, 4.9, 34.8, Math.PI, 0xffd884);
 
     this.addPeripheralArchitecture();
     this.addWallDressings();
     this.addArenaCoverRoutes();
     this.addTraversalRoutes();
+    this.addExpandedOuterLanes();
     this.addSkylineSetpieces();
+    this.addSpectacleRing();
     this.addArenaRoof();
 
     this.addMountains();
@@ -2359,19 +2386,20 @@ class Game {
   }
 
   addWallDressings() {
+    const edge = CONFIG.arenaLimit - 0.98;
     const placements = [
-      { x: -23.02, z: -14, rotationY: Math.PI / 2 },
-      { x: -23.02, z: 0, rotationY: Math.PI / 2 },
-      { x: -23.02, z: 14, rotationY: Math.PI / 2 },
-      { x: 23.02, z: -14, rotationY: -Math.PI / 2 },
-      { x: 23.02, z: 0, rotationY: -Math.PI / 2 },
-      { x: 23.02, z: 14, rotationY: -Math.PI / 2 },
-      { x: -14, z: -23.02, rotationY: 0 },
-      { x: 0, z: -23.02, rotationY: 0 },
-      { x: 14, z: -23.02, rotationY: 0 },
-      { x: -14, z: 23.02, rotationY: Math.PI },
-      { x: 0, z: 23.02, rotationY: Math.PI },
-      { x: 14, z: 23.02, rotationY: Math.PI },
+      { x: -edge, z: -20, rotationY: Math.PI / 2 },
+      { x: -edge, z: 0, rotationY: Math.PI / 2 },
+      { x: -edge, z: 20, rotationY: Math.PI / 2 },
+      { x: edge, z: -20, rotationY: -Math.PI / 2 },
+      { x: edge, z: 0, rotationY: -Math.PI / 2 },
+      { x: edge, z: 20, rotationY: -Math.PI / 2 },
+      { x: -20, z: -edge, rotationY: 0 },
+      { x: 0, z: -edge, rotationY: 0 },
+      { x: 20, z: -edge, rotationY: 0 },
+      { x: -20, z: edge, rotationY: Math.PI },
+      { x: 0, z: edge, rotationY: Math.PI },
+      { x: 20, z: edge, rotationY: Math.PI },
     ];
 
     for (const placement of placements) {
@@ -2529,16 +2557,159 @@ class Game {
     this.addVaultFence(6.4, 4.2, 0.34, 3.2, 0.92, 0x72fff0);
   }
 
+  addExpandedOuterLanes() {
+    this.addTransitCar(0, -24.5, "z", 0x72fff0);
+    this.addTransitCar(0, 24.5, "z", 0xffd884);
+    this.addCoverNode(-24.8, 0, 4.8, 2.2, 2.1, 0x72fff0);
+    this.addCoverNode(24.8, 0, 4.8, 2.2, 2.1, 0xffd884);
+    this.addCoverNode(-21.5, -21.5, 4.2, 2.1, 1.9, 0x72fff0);
+    this.addCoverNode(21.5, 21.5, 4.2, 2.1, 1.9, 0xffd884);
+    this.addCoverNode(-21.5, 21.5, 4.2, 2.1, 1.9, 0xffd884);
+    this.addCoverNode(21.5, -21.5, 4.2, 2.1, 1.9, 0x72fff0);
+    this.addStairTerrace(-25.4, -16.8, "east", 0x72fff0);
+    this.addStairTerrace(25.4, 16.8, "west", 0xffd884);
+    this.addVaultFence(-17.8, 22.8, 4.2, 0.34, 0.92, 0x72fff0);
+    this.addVaultFence(17.8, -22.8, 4.2, 0.34, 0.92, 0xffd884);
+    this.addVaultFence(-22.8, -17.8, 0.34, 4.2, 0.92, 0xffd884);
+    this.addVaultFence(22.8, 17.8, 0.34, 4.2, 0.92, 0x72fff0);
+  }
+
+  addSpectacleRing() {
+    this.addNeonGateway(0, -38.5, 0, 0x72fff0);
+    this.addNeonGateway(0, 38.5, Math.PI, 0xffd884);
+    this.addNeonGateway(-38.5, 0, Math.PI / 2, 0x72fff0);
+    this.addNeonGateway(38.5, 0, -Math.PI / 2, 0xffd884);
+
+    this.addCrystalGarden(-33, -33, 0x72fff0);
+    this.addCrystalGarden(33, -33, 0xffd884);
+    this.addCrystalGarden(-33, 33, 0xffd884);
+    this.addCrystalGarden(33, 33, 0x72fff0);
+
+    this.addFloatingHalo(18, 12.6, 0x72fff0, 0.32);
+    this.addFloatingHalo(26, 14.2, 0xffd884, -0.24);
+  }
+
+  addNeonGateway(x, z, rotationY, accent) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+    group.rotation.y = rotationY;
+
+    for (const side of [-1, 1]) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.72, 6.8, 0.72), this.worldMaterials.trimMetal);
+      pillar.position.set(side * 3.6, 3.4, 0);
+      pillar.castShadow = true;
+      pillar.receiveShadow = true;
+      group.add(pillar);
+
+      const inset = new THREE.Mesh(
+        new THREE.BoxGeometry(0.24, 5.8, 0.12),
+        new THREE.MeshStandardMaterial({
+          color: accent,
+          emissive: accent,
+          emissiveIntensity: 0.7,
+          roughness: 0.18,
+          metalness: 0.56,
+        }),
+      );
+      inset.position.set(side * 3.34, 3.3, 0.38);
+      group.add(inset);
+    }
+
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(3.7, 0.2, 14, 36, Math.PI), this.worldMaterials.trimMetal);
+    arch.position.y = 6.1;
+    arch.rotation.z = Math.PI;
+    group.add(arch);
+
+    const archGlow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: accent,
+        transparent: true,
+        opacity: 0.38,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    archGlow.position.set(0, 5.8, 0);
+    archGlow.scale.set(7.6, 3.6, 1);
+    group.add(archGlow);
+    this.decorAnimations.push((time) => {
+      arch.rotation.y = Math.sin(time * 0.8 + x * 0.02 + z * 0.02) * 0.08;
+      archGlow.material.opacity = 0.28 + Math.sin(time * 2.4 + x * 0.1) * 0.08;
+    });
+
+    this.scene.add(group);
+  }
+
+  addCrystalGarden(x, z, accent) {
+    const group = new THREE.Group();
+    group.position.set(x, 0, z);
+
+    for (let i = 0; i < 6; i += 1) {
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(rand(0.36, 0.92), 0),
+        new THREE.MeshStandardMaterial({
+          color: 0xf7fdff,
+          emissive: accent,
+          emissiveIntensity: 0.32,
+          roughness: 0.12,
+          metalness: 0.08,
+          transparent: true,
+          opacity: 0.94,
+        }),
+      );
+      crystal.position.set(rand(-1.8, 1.8), rand(1.2, 3.4), rand(-1.8, 1.8));
+      crystal.rotation.set(rand(0, Math.PI), rand(0, Math.PI), rand(0, Math.PI));
+      const baseY = crystal.position.y;
+      const baseRotY = crystal.rotation.y;
+      crystal.castShadow = true;
+      group.add(crystal);
+      this.decorAnimations.push((time) => {
+        crystal.rotation.y = baseRotY + time * 0.22;
+        crystal.position.y = baseY + Math.sin(time * 1.6 + i + x * 0.05) * 0.08;
+      });
+    }
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.1, 2.4, 0.42, 18),
+      this.worldMaterials.planter,
+    );
+    base.position.y = 0.2;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    this.scene.add(group);
+  }
+
+  addFloatingHalo(radius, y, accent, speed) {
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, 0.14, 12, 72),
+      new THREE.MeshBasicMaterial({
+        color: accent,
+        transparent: true,
+        opacity: 0.28,
+      }),
+    );
+    halo.rotation.x = Math.PI / 2;
+    halo.position.y = y;
+    this.scene.add(halo);
+    this.decorAnimations.push((time) => {
+      halo.rotation.z = time * speed;
+      halo.material.opacity = 0.2 + Math.sin(time * 1.8 + radius) * 0.06;
+    });
+  }
+
   addSkylineSetpieces() {
     this.addCentralReactor();
-    this.addObservationDeck(0, -33, 0);
-    this.addObservationDeck(0, 33, Math.PI);
-    this.addObservationDeck(-33, 0, Math.PI / 2);
-    this.addObservationDeck(33, 0, -Math.PI / 2);
-    this.addHeroBillboard(-30, 8.4, -16, Math.PI / 4, 0x72fff0, "SOL GATE");
-    this.addHeroBillboard(30, 8.4, -16, -Math.PI / 4, 0xffd884, "AURORA");
-    this.addHeroBillboard(-30, 8.4, 16, Math.PI * 0.75, 0xffd884, "SKYLINE");
-    this.addHeroBillboard(30, 8.4, 16, -Math.PI * 0.75, 0x72fff0, "CORE RUN");
+    this.addObservationDeck(0, -43, 0);
+    this.addObservationDeck(0, 43, Math.PI);
+    this.addObservationDeck(-43, 0, Math.PI / 2);
+    this.addObservationDeck(43, 0, -Math.PI / 2);
+    this.addHeroBillboard(-42, 10.4, -20, Math.PI / 4, 0x72fff0, "SOL GATE");
+    this.addHeroBillboard(42, 10.4, -20, -Math.PI / 4, 0xffd884, "AURORA");
+    this.addHeroBillboard(-42, 10.4, 20, Math.PI * 0.75, 0xffd884, "SKYLINE");
+    this.addHeroBillboard(42, 10.4, 20, -Math.PI * 0.75, 0x72fff0, "CORE RUN");
     this.addOverheadTransitLine();
   }
 
@@ -2929,7 +3100,7 @@ class Game {
     for (const axis of ["x", "z"]) {
       for (const offset of [-1.1, 1.1]) {
         const rail = new THREE.Mesh(
-          new THREE.BoxGeometry(axis === "x" ? 72 : 0.16, 0.12, axis === "x" ? 0.16 : 72),
+          new THREE.BoxGeometry(axis === "x" ? 96 : 0.16, 0.12, axis === "x" ? 0.16 : 96),
           railMaterial,
         );
         rail.position.set(axis === "x" ? 0 : offset, 10.2, axis === "x" ? offset : 0);
@@ -2938,10 +3109,10 @@ class Game {
     }
 
     for (const [x, z] of [
-      [-22, -22],
-      [22, -22],
-      [-22, 22],
-      [22, 22],
+      [-30, -30],
+      [30, -30],
+      [-30, 30],
+      [30, 30],
     ]) {
       const mast = new THREE.Mesh(new THREE.BoxGeometry(0.42, 10.2, 0.42), railMaterial);
       mast.position.set(x, 5.1, z);
@@ -2951,13 +3122,13 @@ class Game {
 
     const podA = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.15, 1.45), this.worldMaterials.wall);
     const podB = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.15, 2.5), this.worldMaterials.warmWall);
-    podA.position.set(-18, 9.4, -1.1);
-    podB.position.set(1.1, 9.4, 18);
+    podA.position.set(-26, 9.4, -1.1);
+    podB.position.set(1.1, 9.4, 26);
     this.scene.add(podA, podB);
 
     this.decorAnimations.push((time) => {
-      podA.position.x = Math.sin(time * 0.22) * 24;
-      podB.position.z = Math.cos(time * 0.2) * 24;
+      podA.position.x = Math.sin(time * 0.22) * 32;
+      podB.position.z = Math.cos(time * 0.2) * 32;
     });
   }
 
@@ -3089,7 +3260,7 @@ class Game {
 
   addMountains() {
     for (let i = 0; i < 12; i += 1) {
-      const radius = 40 + i * 4.5;
+      const radius = 52 + i * 5.5;
       const angle = (Math.PI * 2 * i) / 12;
       const height = rand(10, 22);
       const mountain = new THREE.Mesh(
@@ -3228,10 +3399,230 @@ class Game {
         vaultable,
       };
       this.environmentRaycastMeshes.push(mesh);
+      this.cameraCollisionMeshes.push(mesh);
       this.collisionVolumes.push(collider);
       mesh.userData.collider = collider;
     }
     return mesh;
+  }
+
+  buildPlayerAvatar() {
+    this.playerAvatar = new THREE.Group();
+    this.playerAvatar.position.set(0, -CONFIG.playerHeight, 0);
+    this.playerObject.add(this.playerAvatar);
+
+    const suitMaterial = new THREE.MeshStandardMaterial({
+      color: 0x18314a,
+      emissive: 0x2a5672,
+      emissiveIntensity: 0.08,
+      roughness: 0.62,
+      metalness: 0.18,
+    });
+    const armorMaterial = new THREE.MeshStandardMaterial({
+      color: 0xe8f5ff,
+      emissive: 0x5adeff,
+      emissiveIntensity: 0.12,
+      roughness: 0.22,
+      metalness: 0.82,
+    });
+    const trimMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffb56f,
+      emissive: 0xff9d56,
+      emissiveIntensity: 0.2,
+      roughness: 0.26,
+      metalness: 0.42,
+    });
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffdcc0,
+      roughness: 0.64,
+      metalness: 0.02,
+    });
+
+    this.playerBodyPivot = new THREE.Group();
+    this.playerAvatar.add(this.playerBodyPivot);
+
+    const hips = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.34, 0.36), suitMaterial);
+    hips.position.y = 0.92;
+
+    this.playerTorso = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.86, 0.42), suitMaterial);
+    this.playerTorso.position.y = 1.42;
+
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.58, 0.48), armorMaterial);
+    chest.position.set(0, 1.52, 0.04);
+
+    const backpack = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.66, 0.22), trimMaterial);
+    backpack.position.set(0, 1.42, 0.28);
+
+    this.playerHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), skinMaterial);
+    this.playerHead.position.set(0, 2.08, -0.02);
+    this.playerHead.scale.set(0.92, 1.02, 0.92);
+
+    const visor = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.16, 0.16),
+      new THREE.MeshStandardMaterial({
+        color: 0x18283d,
+        emissive: 0x63e7ff,
+        emissiveIntensity: 0.28,
+        roughness: 0.16,
+        metalness: 0.84,
+      }),
+    );
+    visor.position.set(0, 2.06, -0.16);
+
+    const shoulderLeft = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), armorMaterial);
+    shoulderLeft.position.set(0.4, 1.64, 0.02);
+    const shoulderRight = shoulderLeft.clone();
+    shoulderRight.position.x *= -1;
+
+    this.playerLeftArmPivot = new THREE.Group();
+    this.playerLeftArmPivot.position.set(0.38, 1.58, 0.02);
+    this.playerRightArmPivot = new THREE.Group();
+    this.playerRightArmPivot.position.set(-0.38, 1.58, 0.02);
+
+    const armGeometry = new THREE.CylinderGeometry(0.08, 0.1, 0.74, 10);
+    const leftArm = new THREE.Mesh(armGeometry, suitMaterial);
+    leftArm.position.y = -0.36;
+    const rightArm = new THREE.Mesh(armGeometry, suitMaterial);
+    rightArm.position.y = -0.36;
+    const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), skinMaterial);
+    leftHand.position.y = -0.74;
+    const rightHand = leftHand.clone();
+    this.playerLeftArmPivot.add(leftArm, leftHand);
+    this.playerRightArmPivot.add(rightArm, rightHand);
+
+    this.playerLeftLegPivot = new THREE.Group();
+    this.playerLeftLegPivot.position.set(0.16, 0.8, 0.02);
+    this.playerRightLegPivot = new THREE.Group();
+    this.playerRightLegPivot.position.set(-0.16, 0.8, 0.02);
+
+    const legGeometry = new THREE.CylinderGeometry(0.1, 0.12, 0.86, 10);
+    const leftLeg = new THREE.Mesh(legGeometry, suitMaterial);
+    leftLeg.position.y = -0.42;
+    const rightLeg = new THREE.Mesh(legGeometry, suitMaterial);
+    rightLeg.position.y = -0.42;
+    const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.34), trimMaterial);
+    leftBoot.position.set(0, -0.84, -0.08);
+    const rightBoot = leftBoot.clone();
+    this.playerLeftLegPivot.add(leftLeg, leftBoot);
+    this.playerRightLegPivot.add(rightLeg, rightBoot);
+
+    this.playerHeadAnchor = new THREE.Object3D();
+    this.playerHeadAnchor.position.set(0, 1.68, -0.02);
+
+    this.playerWeaponPivot = new THREE.Group();
+    this.playerWeaponPivot.position.set(-0.22, 1.28, -0.22);
+    this.playerWeaponPivot.rotation.set(-0.2, 0.08, -0.08);
+
+    this.playerShotgunGroup = new THREE.Group();
+    const shotgunReceiver = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.24, 0.9), this.weaponMaterials.body);
+    shotgunReceiver.position.set(0, 0.02, -0.06);
+    const shotgunBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 1.32), this.weaponMaterials.accent);
+    shotgunBarrel.position.set(0.02, 0.05, -0.94);
+    const shotgunHeatshield = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.52), this.weaponMaterials.body);
+    shotgunHeatshield.position.set(0.02, 0.07, -0.56);
+    const shotgunTube = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 1.12), this.weaponMaterials.accent);
+    shotgunTube.position.set(0.02, -0.06, -0.84);
+    this.playerShotgunPump = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.36), this.weaponMaterials.grip);
+    this.playerShotgunPump.position.set(0.02, -0.02, -0.76);
+    const shotgunGrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.36, 0.14), this.weaponMaterials.grip);
+    shotgunGrip.position.set(0.03, -0.2, 0.18);
+    shotgunGrip.rotation.z = -0.14;
+    const shotgunStock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.2, 0.54), this.weaponMaterials.accent);
+    shotgunStock.position.set(-0.05, 0.02, 0.46);
+    shotgunStock.rotation.y = -0.12;
+    const shotgunButt = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.12), this.weaponMaterials.grip);
+    shotgunButt.position.set(-0.08, 0.02, 0.74);
+    const shotgunRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.32), this.weaponMaterials.accent);
+    shotgunRail.position.set(0, 0.19, -0.24);
+    for (let i = 0; i < 3; i += 1) {
+      const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 10), trimMaterial);
+      shell.rotation.z = Math.PI / 2;
+      shell.position.set(0.16, 0, -0.18 + i * 0.14);
+      this.playerShotgunGroup.add(shell);
+    }
+    this.playerMuzzleShotgun = new THREE.Object3D();
+    this.playerMuzzleShotgun.position.set(0.02, 0.05, -1.58);
+    this.shotgunMuzzleFlash = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: 0xffd798,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.shotgunMuzzleFlash.position.set(0.02, 0.05, -1.52);
+    this.shotgunMuzzleFlash.scale.set(0.65, 0.65, 1);
+    this.playerShotgunGroup.add(
+      shotgunReceiver,
+      shotgunBarrel,
+      shotgunHeatshield,
+      shotgunTube,
+      this.playerShotgunPump,
+      shotgunGrip,
+      shotgunStock,
+      shotgunButt,
+      shotgunRail,
+      this.playerMuzzleShotgun,
+      this.shotgunMuzzleFlash,
+    );
+
+    this.playerCannonGroup = new THREE.Group();
+    const cannonBody = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.28, 1.18), this.weaponMaterials.body);
+    cannonBody.position.set(0, 0.03, -0.02);
+    const cannonBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 1.4), this.weaponMaterials.accent);
+    cannonBarrel.position.set(0.03, 0.05, -1.02);
+    this.playerCannonCoil = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.04, 10, 24), this.weaponMaterials.accent);
+    this.playerCannonCoil.position.set(0, 0.05, -0.6);
+    this.playerCannonCoil.rotation.y = Math.PI / 2;
+    const cannonStock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.48), this.weaponMaterials.grip);
+    cannonStock.position.set(-0.03, -0.01, 0.58);
+    const cannonGrip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.38, 0.18), this.weaponMaterials.grip);
+    cannonGrip.position.set(0.04, -0.2, 0.28);
+    cannonGrip.rotation.z = -0.12;
+    this.playerMuzzleCannon = new THREE.Object3D();
+    this.playerMuzzleCannon.position.set(0.02, 0.05, -1.68);
+    this.cannonMuzzleFlash = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color: 0xffbf7b,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.cannonMuzzleFlash.position.set(0.02, 0.05, -1.6);
+    this.cannonMuzzleFlash.scale.set(0.9, 0.9, 1);
+    this.playerCannonGroup.add(
+      cannonBody,
+      cannonBarrel,
+      this.playerCannonCoil,
+      cannonStock,
+      cannonGrip,
+      this.playerMuzzleCannon,
+      this.cannonMuzzleFlash,
+    );
+
+    this.playerWeaponPivot.add(this.playerShotgunGroup, this.playerCannonGroup);
+
+    this.playerBodyPivot.add(
+      hips,
+      this.playerTorso,
+      chest,
+      backpack,
+      this.playerHead,
+      visor,
+      shoulderLeft,
+      shoulderRight,
+      this.playerLeftArmPivot,
+      this.playerRightArmPivot,
+      this.playerLeftLegPivot,
+      this.playerRightLegPivot,
+      this.playerHeadAnchor,
+      this.playerWeaponPivot,
+    );
   }
 
   buildWeapon() {
@@ -3348,6 +3739,7 @@ class Game {
     handRight.position.set(-0.16, -0.21, 0.16);
     handRight.rotation.z = -0.28;
     this.weaponPivot.add(handLeft, handRight);
+    this.buildPlayerAvatar();
     this.applyWeaponVisuals();
   }
 
@@ -3392,6 +3784,7 @@ class Game {
     this.resetWeaponState();
 
     this.camera.rotation.set(0, 0, 0);
+    this.snapThirdPersonCamera();
     this.started = true;
     this.gameOver = false;
     this.wave = 0;
@@ -3410,6 +3803,169 @@ class Game {
     ui.objective.textContent = "첫 웨이브가 곧 시작됩니다. 중앙 라인을 넓게 쓰고 스폰 패드를 확인하세요.";
     ui.statusNote.textContent = "밝은 엄폐물 사이를 활용해 드론 투사체를 끊어낼 수 있습니다.";
     this.updateUI(true);
+  }
+
+  getWeaponOrigin() {
+    if (this.activeWeaponId === "lance" && this.playerMuzzleCannon) {
+      return this.playerMuzzleCannon.getWorldPosition(new THREE.Vector3());
+    }
+    if (this.playerMuzzleShotgun) {
+      return this.playerMuzzleShotgun.getWorldPosition(new THREE.Vector3());
+    }
+    return this.muzzle.getWorldPosition(new THREE.Vector3());
+  }
+
+  snapThirdPersonCamera() {
+    this.camera.position.set(CONFIG.thirdPersonShoulder, CONFIG.thirdPersonHeight, CONFIG.thirdPersonDistance);
+  }
+
+  updateThirdPersonCamera(dt) {
+    if (!this.started || !this.camera.parent) {
+      return;
+    }
+
+    const aimBlend = this.aimDownSights ? 1 : 0;
+    const desiredLocal = new THREE.Vector3(
+      THREE.MathUtils.lerp(CONFIG.thirdPersonShoulder, 0.54, aimBlend),
+      THREE.MathUtils.lerp(CONFIG.thirdPersonHeight, 0.42, aimBlend) + this.weaponKick * 0.04,
+      THREE.MathUtils.lerp(CONFIG.thirdPersonDistance, 2.85, aimBlend) + this.weaponRecoil * 0.12,
+    );
+
+    const pitchObject = this.camera.parent;
+    pitchObject.updateWorldMatrix(true, false);
+    const anchorWorld = this.getPlayerEyePosition().clone().add(new THREE.Vector3(0, 0.08, 0));
+    const desiredWorld = desiredLocal.clone().applyMatrix4(pitchObject.matrixWorld);
+    const travel = desiredWorld.clone().sub(anchorWorld);
+    const distance = travel.length();
+    let resolvedWorld = desiredWorld;
+
+    if (distance > 0.0001) {
+      const direction = travel.clone().normalize();
+      const raycaster = new THREE.Raycaster(anchorWorld, direction, 0, distance);
+      const hits = raycaster.intersectObjects(this.cameraCollisionMeshes, false);
+      if (hits.length > 0) {
+        resolvedWorld = anchorWorld.clone().addScaledVector(direction, Math.max(1.05, hits[0].distance - 0.22));
+      }
+    }
+
+    const resolvedLocal = pitchObject.worldToLocal(resolvedWorld.clone());
+    const smooth = 1 - Math.exp(-dt * 12);
+    this.camera.position.lerp(resolvedLocal, smooth);
+  }
+
+  updatePlayerAvatar(dt) {
+    if (!this.playerAvatar) {
+      return;
+    }
+
+    this.playerAvatar.visible = this.started;
+    if (!this.started) {
+      return;
+    }
+
+    const move = this.player.moveBlend;
+    const gait = this.time * (this.player.onGround ? 8.2 : 5.2);
+    const legSwing = Math.sin(gait) * 0.84 * move;
+    const armSwing = Math.sin(gait + Math.PI) * 0.22 * move;
+    const bob = Math.abs(Math.cos(gait * 0.5)) * 0.08 * move;
+    const aimBlend = this.aimDownSights ? 1 : 0;
+    const isLance = this.activeWeaponId === "lance";
+
+    this.playerBodyPivot.position.y = THREE.MathUtils.damp(this.playerBodyPivot.position.y, bob, 10, dt);
+    this.playerBodyPivot.rotation.z = THREE.MathUtils.damp(
+      this.playerBodyPivot.rotation.z,
+      clamp(this.player.velocity.x / CONFIG.sprintSpeed, -1, 1) * 0.12,
+      8,
+      dt,
+    );
+    this.playerTorso.rotation.x = THREE.MathUtils.damp(
+      this.playerTorso.rotation.x,
+      -0.08 - this.weaponRecoil * 0.06 + move * 0.04,
+      10,
+      dt,
+    );
+    this.playerHead.rotation.x = THREE.MathUtils.damp(this.playerHead.rotation.x, this.lookAngles.pitch * 0.18, 10, dt);
+    this.playerHead.rotation.y = THREE.MathUtils.damp(
+      this.playerHead.rotation.y,
+      clamp(this.weaponKick * 0.08, -0.12, 0.12),
+      10,
+      dt,
+    );
+
+    this.playerLeftLegPivot.rotation.x = legSwing;
+    this.playerRightLegPivot.rotation.x = -legSwing;
+    this.playerLeftArmPivot.rotation.x = THREE.MathUtils.damp(
+      this.playerLeftArmPivot.rotation.x,
+      -0.72 + armSwing * 0.34 - aimBlend * 0.14,
+      12,
+      dt,
+    );
+    this.playerRightArmPivot.rotation.x = THREE.MathUtils.damp(
+      this.playerRightArmPivot.rotation.x,
+      -1.16 - this.weaponRecoil * 0.16 - armSwing * 0.15,
+      12,
+      dt,
+    );
+    this.playerLeftArmPivot.rotation.z = THREE.MathUtils.damp(this.playerLeftArmPivot.rotation.z, 0.2, 12, dt);
+    this.playerRightArmPivot.rotation.z = THREE.MathUtils.damp(
+      this.playerRightArmPivot.rotation.z,
+      -0.42 + (isLance ? -0.08 : 0),
+      12,
+      dt,
+    );
+
+    this.playerWeaponPivot.position.x = THREE.MathUtils.damp(
+      this.playerWeaponPivot.position.x,
+      isLance ? -0.14 : -0.22,
+      12,
+      dt,
+    );
+    this.playerWeaponPivot.position.y = THREE.MathUtils.damp(
+      this.playerWeaponPivot.position.y,
+      1.28 - bob * 0.18 + this.weaponKick * 0.03,
+      12,
+      dt,
+    );
+    this.playerWeaponPivot.position.z = THREE.MathUtils.damp(
+      this.playerWeaponPivot.position.z,
+      THREE.MathUtils.lerp(-0.22, -0.08, aimBlend),
+      12,
+      dt,
+    );
+    this.playerWeaponPivot.rotation.x = THREE.MathUtils.damp(
+      this.playerWeaponPivot.rotation.x,
+      (isLance ? -0.1 : -0.2) - this.weaponRecoil * 0.08,
+      12,
+      dt,
+    );
+    this.playerWeaponPivot.rotation.y = THREE.MathUtils.damp(
+      this.playerWeaponPivot.rotation.y,
+      isLance ? 0.14 : 0.08,
+      12,
+      dt,
+    );
+    this.playerWeaponPivot.rotation.z = THREE.MathUtils.damp(
+      this.playerWeaponPivot.rotation.z,
+      isLance ? -0.14 : -0.08,
+      12,
+      dt,
+    );
+
+    if (this.playerShotgunPump) {
+      this.playerShotgunPump.position.z = -0.76 + this.weaponRecoil * 0.12;
+    }
+    if (this.playerCannonCoil) {
+      this.playerCannonCoil.rotation.z += dt * 4.2;
+    }
+
+    if (this.shotgunMuzzleFlash) {
+      this.shotgunMuzzleFlash.material.opacity = this.activeWeaponId === "rifle" && this.muzzleTimer > 0 ? this.muzzleTimer * 14 : 0;
+      this.shotgunMuzzleFlash.scale.setScalar(0.7 + this.muzzleTimer * 7.4);
+    }
+    if (this.cannonMuzzleFlash) {
+      this.cannonMuzzleFlash.material.opacity = this.activeWeaponId === "lance" && this.muzzleTimer > 0 ? this.muzzleTimer * 12 : 0;
+      this.cannonMuzzleFlash.scale.setScalar(0.95 + this.muzzleTimer * 8.2);
+    }
   }
 
   getGroundHeightAt(position, currentEyeY = this.playerObject.position.y) {
@@ -3526,6 +4082,9 @@ class Game {
   }
 
   getPlayerEyePosition() {
+    if (this.playerHeadAnchor) {
+      return this.playerHeadAnchor.getWorldPosition(new THREE.Vector3());
+    }
     return new THREE.Vector3(
       this.playerObject.position.x,
       this.playerObject.position.y,
@@ -3773,6 +4332,123 @@ class Game {
     });
   }
 
+  spawnShotgunBlast(origin, direction, color) {
+    const right = new THREE.Vector3().crossVectors(direction, UP);
+    if (right.lengthSq() < 0.0001) {
+      right.set(1, 0, 0);
+    } else {
+      right.normalize();
+    }
+    const localUp = new THREE.Vector3().crossVectors(right, direction).normalize();
+    const flash = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.orange,
+        color,
+        transparent: true,
+        opacity: 0.94,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    flash.position.copy(origin).addScaledVector(direction, 0.18);
+    flash.scale.setScalar(0.95);
+    this.scene.add(flash);
+    this.effects.push({
+      object: flash,
+      velocity: new THREE.Vector3(),
+      gravity: 0,
+      life: 0.07,
+      total: 0.07,
+      scaleBoost: 2.4,
+      sprite: true,
+    });
+
+    for (let i = 0; i < 8; i += 1) {
+      const total = rand(0.08, 0.14);
+      const spark = new THREE.Mesh(
+        new THREE.BoxGeometry(0.05, 0.05, 0.12),
+        new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.95,
+        }),
+      );
+      spark.position.copy(origin);
+      this.scene.add(spark);
+      const velocity = direction
+        .clone()
+        .add(new THREE.Vector3(rand(-0.35, 0.35), rand(-0.16, 0.18), rand(-0.35, 0.35)))
+        .normalize()
+        .multiplyScalar(rand(7.2, 12));
+      this.effects.push({
+        object: spark,
+        velocity,
+        gravity: 7.2,
+        life: total,
+        total,
+        spin: new THREE.Vector3(rand(-16, 16), rand(-16, 16), rand(-16, 16)),
+      });
+    }
+
+    for (let i = 0; i < 3; i += 1) {
+      const smoke = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.glowTextures.smoke,
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.34,
+          depthWrite: false,
+        }),
+      );
+      smoke.position.copy(origin).addScaledVector(direction, 0.1 + i * 0.08);
+      smoke.scale.setScalar(0.75 + i * 0.18);
+      this.scene.add(smoke);
+      this.effects.push({
+        object: smoke,
+        velocity: direction
+          .clone()
+          .multiplyScalar(1.4 + i * 0.4)
+          .add(new THREE.Vector3(rand(-0.25, 0.25), rand(0.2, 0.5), rand(-0.25, 0.25))),
+        gravity: 0,
+        life: 0.3 + i * 0.05,
+        total: 0.3 + i * 0.05,
+        scaleBoost: 1.8,
+        sprite: true,
+      });
+    }
+
+    const shell = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.16, 10),
+      new THREE.MeshStandardMaterial({
+        color: 0xdba35a,
+        emissive: 0xffc66f,
+        emissiveIntensity: 0.1,
+        roughness: 0.24,
+        metalness: 0.72,
+      }),
+    );
+    shell.rotation.z = Math.PI / 2;
+    shell.position
+      .copy(origin)
+      .addScaledVector(right, 0.14)
+      .addScaledVector(localUp, 0.05)
+      .addScaledVector(direction, -0.18);
+    this.scene.add(shell);
+    const ejection = right
+      .clone()
+      .multiplyScalar(2.6)
+      .add(localUp.multiplyScalar(1.8))
+      .add(direction.clone().multiplyScalar(-0.7));
+    this.effects.push({
+      object: shell,
+      velocity: ejection,
+      gravity: 9.5,
+      life: 0.62,
+      total: 0.62,
+      spin: new THREE.Vector3(rand(12, 22), rand(10, 18), rand(-18, 18)),
+    });
+  }
+
   setDamageFeedback(sourcePosition = null) {
     this.damageFeedback.flash = 1;
     this.damageFeedback.direction = 1;
@@ -3886,6 +4562,9 @@ class Game {
   completeReload() {
     const weapon = this.getActiveWeapon();
     this.getActiveWeaponState().ammo = weapon.magSize;
+    if (this.activeWeaponId === "rifle") {
+      this.audio.pump();
+    }
     ui.statusNote.textContent = "탄창 재정렬 완료. 화면 중앙 기준으로 정확하게 다시 진입하세요.";
   }
 
@@ -3911,7 +4590,7 @@ class Game {
     this.muzzleTimer = 0.06;
     this.audio.shot(this.activeWeaponId);
 
-    const muzzleWorld = this.muzzle.getWorldPosition(new THREE.Vector3());
+    const muzzleWorld = this.getWeaponOrigin();
     const baseRaycaster = new THREE.Raycaster();
     baseRaycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
     baseRaycaster.far = weapon.maxRange || CONFIG.bulletRange;
@@ -3928,7 +4607,26 @@ class Game {
       if (hit.object.userData.enemy) {
         hitEnemy = hit.object.userData.enemy;
         crit = Boolean(hit.object.userData.crit);
+      }
+    }
+
+    const shotDirection = hitPoint.clone().sub(muzzleWorld);
+    if (shotDirection.lengthSq() < 0.0001) {
+      shotDirection.copy(baseRaycaster.ray.direction);
+    } else {
+      shotDirection.normalize();
+    }
+    const muzzleRay = new THREE.Raycaster(muzzleWorld, shotDirection, 0, weapon.maxRange || CONFIG.bulletRange);
+    const muzzleHits = muzzleRay.intersectObjects(allTargets, false);
+    if (muzzleHits.length > 0) {
+      const muzzleHit = muzzleHits[0];
+      hitPoint = muzzleHit.point.clone();
+      if (muzzleHit.object.userData.enemy) {
+        hitEnemy = muzzleHit.object.userData.enemy;
+        crit = Boolean(muzzleHit.object.userData.crit);
       } else {
+        hitEnemy = null;
+        crit = false;
         this.spawnImpact(hitPoint, 0xffffff, 7, 5);
       }
     }
@@ -3948,6 +4646,7 @@ class Game {
       this.damageEnemiesInRadius(hitPoint, weapon.splashRadius, weapon.splashDamage * this.damageMultiplier, hitEnemy);
       this.audio.pulse({ frequency: 110, slideTo: 42, duration: 0.16, startGain: 0.08, type: "sawtooth" });
     } else if (weapon.pelletCount) {
+      this.spawnShotgunBlast(muzzleWorld, shotDirection, this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor);
       const enemyHits = new Map();
       const visibleTracers = Math.min(4, weapon.pelletCount);
 
@@ -3965,9 +4664,11 @@ class Game {
         direction.applyAxisAngle(UP, rand(-spread, spread) * 0.5);
         direction.normalize();
 
-        const pelletRay = new THREE.Raycaster(baseRaycaster.ray.origin, direction, 0, weapon.maxRange);
+        const pelletAimPoint = baseRaycaster.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
+        const pelletDirection = pelletAimPoint.sub(muzzleWorld).normalize();
+        const pelletRay = new THREE.Raycaster(muzzleWorld, pelletDirection, 0, weapon.maxRange);
         const pelletHits = pelletRay.intersectObjects(allTargets, false);
-        let pelletPoint = pelletRay.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
+        let pelletPoint = pelletRay.ray.origin.clone().add(pelletDirection.clone().multiplyScalar(weapon.maxRange));
 
         if (pelletHits.length > 0) {
           const pelletHit = pelletHits[0];
@@ -4197,45 +4898,9 @@ class Game {
       return;
     }
 
-    this.weaponGroup.visible = this.started;
-    if (!this.started) {
-      return;
-    }
-
-    const move = this.player.moveBlend;
-    const bobTime = this.time * (this.aimDownSights ? 6.5 : 9.4);
-    const bobX = Math.sin(bobTime) * 0.016 * move;
-    const bobY = Math.abs(Math.cos(bobTime * 0.5)) * 0.02 * move;
-    const aimBlend = this.aimDownSights ? 1 : 0;
-    const isLance = this.activeWeaponId === "lance";
-
-    this.weaponGroup.position.x = THREE.MathUtils.damp(
-      this.weaponGroup.position.x,
-      THREE.MathUtils.lerp(0.42, isLance ? 0.08 : 0.12, aimBlend) + bobX,
-      12,
-      dt,
-    );
-    this.weaponGroup.position.y = THREE.MathUtils.damp(
-      this.weaponGroup.position.y,
-      THREE.MathUtils.lerp(-0.42, isLance ? -0.28 : -0.31, aimBlend) - bobY + this.weaponKick * 0.04,
-      12,
-      dt,
-    );
-    this.weaponGroup.position.z = THREE.MathUtils.damp(
-      this.weaponGroup.position.z,
-      THREE.MathUtils.lerp(-0.82, isLance ? -0.5 : -0.56, aimBlend) + this.weaponRecoil * 0.1,
-      14,
-      dt,
-    );
-
-    this.weaponGroup.scale.setScalar(THREE.MathUtils.damp(this.weaponGroup.scale.x, isLance ? 1.06 : 1, 10, dt));
-
-    this.weaponPivot.rotation.x = this.weaponRecoil * 0.14 + bobY * 0.8;
-    this.weaponPivot.rotation.y = bobX * 0.8;
-    this.weaponPivot.rotation.z = -bobX * 1.2;
-
-    this.muzzleFlash.material.opacity = this.muzzleTimer > 0 ? this.muzzleTimer * 12 : 0;
-    this.muzzleFlash.scale.setScalar((isLance ? 0.55 : 0.35) + this.muzzleTimer * (isLance ? 6.2 : 4.8));
+    this.weaponGroup.visible = false;
+    this.muzzleFlash.material.opacity = 0;
+    this.updatePlayerAvatar(dt);
   }
 
   explodeGrenade(grenade, index, position = grenade.mesh.position.clone()) {
@@ -4611,6 +5276,7 @@ class Game {
     this.updateTouchLook();
     this.updateMovement(dt);
     this.updateCombat(dt);
+    this.updateThirdPersonCamera(dt);
     this.updateGrenades(dt);
 
     for (const enemy of [...this.enemies]) {
