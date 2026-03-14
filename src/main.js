@@ -9,15 +9,15 @@ const CONFIG = {
   playerHeight: 1.74,
   playerRadius: 0.58,
   gravity: 26,
-  jumpVelocity: 8.8,
+  jumpVelocity: 9.6,
   walkSpeed: 8.4,
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
   touchLookSensitivity: 0.0019,
   touchLookDeadzone: 0.4,
-  stepAssistHeight: 0.48,
-  vaultBoost: 5.6,
+  stepAssistHeight: 0.76,
+  vaultBoost: 6.4,
   thirdPersonDistance: 6.8,
   thirdPersonHeight: 0.36,
   thirdPersonShoulder: 0.46,
@@ -131,28 +131,21 @@ const ENEMY_TYPES = {
 
 const WEAPON_DEFS = {
   rifle: {
-    label: "FROST SIGIL",
-    magSize: 6,
-    fireInterval: 0.48,
-    reloadTime: 1.5,
-    damage: 12,
-    critDamage: 12,
-    crosshairBase: 11,
+    label: "SOLAR VEIL RIFLE",
+    magSize: 30,
+    fireInterval: 0.11,
+    reloadTime: 1.26,
+    damage: 13,
+    critDamage: 18,
+    crosshairBase: 7,
     explosive: false,
-    field: true,
-    fieldRadius: 4.4,
-    fieldDuration: 3.6,
-    fieldTick: 0.45,
-    fieldDamage: 18,
-    fieldSlow: 0.48,
-    fieldSlowDuration: 0.65,
-    tracerColor: 0x9fe7ff,
-    aimTracerColor: 0xe8fbff,
-    fov: 72,
+    tracerColor: 0x8ef9ff,
+    aimTracerColor: 0xd6ffff,
+    fov: 69,
     hipFov: 82,
-    accent: 0x83dfff,
-    body: 0xe8f8ff,
-    grip: 0x1a2440,
+    accent: 0x345978,
+    body: 0xd8e2ec,
+    grip: 0x161c24,
   },
   lance: {
     label: "THUNDER HOWL SHOTGUN",
@@ -219,6 +212,7 @@ const ui = {
   weaponSlotRifle: document.querySelector("#weapon-slot-rifle"),
   weaponSlotLance: document.querySelector("#weapon-slot-lance"),
   grenadeCount: document.querySelector("#grenade-count"),
+  ultimateSlot: document.querySelector("#ultimate-slot"),
   combo: document.querySelector("#combo-value"),
   statusNote: document.querySelector("#status-note"),
   pauseButton: document.querySelector("#pause-button"),
@@ -252,6 +246,7 @@ const ui = {
   mobileReload: document.querySelector("#mobile-reload"),
   mobileSwap: document.querySelector("#mobile-swap"),
   mobileGrenade: document.querySelector("#mobile-grenade"),
+  mobileUltimate: document.querySelector("#mobile-ultimate"),
   debugHud: document.querySelector("#debug-hud"),
 };
 
@@ -524,16 +519,15 @@ class AudioSystem {
       return;
     }
 
-    this.pulse({ frequency: 760, slideTo: 220, duration: 0.14, startGain: 0.12, type: "triangle", when: now });
-    this.pulse({ frequency: 360, slideTo: 120, duration: 0.18, startGain: 0.08, type: "sine", when: now });
-    this.pulse({ frequency: 1120, slideTo: 540, duration: 0.08, startGain: 0.05, type: "square", when: now });
-    this.noise(0.08, 0.03, now, null, "highpass", 2800);
+    this.pulse({ frequency: 540, slideTo: 180, duration: 0.06, startGain: 0.09, type: "square", when: now });
+    this.pulse({ frequency: 240, slideTo: 120, duration: 0.08, startGain: 0.06, type: "triangle", when: now });
+    this.noise(0.045, 0.05, now, null, "highpass", 2200);
   }
 
   reload(weaponId = "rifle") {
     if (weaponId === "rifle") {
-      this.pulse({ frequency: 260, slideTo: 620, duration: 0.2, startGain: 0.08, type: "sine" });
-      this.pulse({ frequency: 480, slideTo: 880, duration: 0.24, startGain: 0.05, type: "triangle" });
+      this.pulse({ frequency: 420, slideTo: 160, duration: 0.16, startGain: 0.08, type: "triangle" });
+      this.pulse({ frequency: 220, slideTo: 540, duration: 0.13, startGain: 0.06, type: "sine" });
       return;
     }
 
@@ -1509,7 +1503,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-frost-skill-a";
+    this.debugBuild = "2026-03-14-ultimate-fantasy-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1556,6 +1550,10 @@ class Game {
     this.grenadeState = {
       ammo: GRENADE_CONFIG.max,
       cooldown: 0,
+    };
+    this.ultimateState = {
+      charge: 0,
+      max: 100,
     };
 
     this.player = {
@@ -1699,6 +1697,16 @@ class Game {
 
   toggleWeapon() {
     this.setActiveWeapon(this.activeWeaponId === "rifle" ? "lance" : "rifle");
+  }
+
+  gainUltimateCharge(amount) {
+    const previous = this.ultimateState.charge;
+    this.ultimateState.charge = clamp(this.ultimateState.charge + amount, 0, this.ultimateState.max);
+    if (previous < this.ultimateState.max && this.ultimateState.charge >= this.ultimateState.max) {
+      this.showAnnouncement("ULTIMATE READY", 1.1, "#c8f6ff");
+      ui.statusNote.textContent = "필살기가 준비됐습니다. F 키로 바닥에서 냉기 충격파를 펼칠 수 있어요.";
+      this.audio.pulse({ frequency: 280, slideTo: 720, duration: 0.24, startGain: 0.08, type: "triangle" });
+    }
   }
 
   createDesktopControls() {
@@ -1984,6 +1992,11 @@ class Game {
       this.audio.unlock();
       this.throwGrenade();
     });
+    ui.mobileUltimate.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      this.audio.unlock();
+      this.castUltimateNova();
+    });
   }
 
   bindEvents() {
@@ -2039,6 +2052,9 @@ class Game {
       }
       if (event.code === "KeyG") {
         this.throwGrenade();
+      }
+      if (event.code === "KeyF") {
+        this.castUltimateNova();
       }
       if (event.code === "Escape" && this.controls.isLocked) {
         this.controls.unlock();
@@ -2881,6 +2897,12 @@ class Game {
     this.addStairTerrace(10.2, 0, "west", 0xffd884);
     this.addStairTerrace(-27.8, 18.2, "east", 0x72fff0);
     this.addStairTerrace(27.8, -18.2, "west", 0xffd884);
+    this.addSlopeRamp(0, -10.6, "z", 0x72fff0, 1.34);
+    this.addSlopeRamp(0, 10.6, "z", 0xffd884, 1.34);
+    this.addSlopeRamp(-10.6, 0, "x", 0x72fff0, 1.34);
+    this.addSlopeRamp(10.6, 0, "x", 0xffd884, 1.34);
+    this.addSlopeRamp(-24.8, 18.2, "x", 0x72fff0, 1.22);
+    this.addSlopeRamp(24.8, -18.2, "x", 0xffd884, 1.22);
 
     this.addFloorStripe(0, 0, 24, 0.82, 0x86f2ff);
     this.addFloorStripe(0, 0, 0.82, 24, 0xffd884);
@@ -3015,6 +3037,51 @@ class Game {
       rail.castShadow = true;
       this.scene.add(rail);
     }
+  }
+
+  addSlopeRamp(x, z, axis, accent, topHeight = 1.34) {
+    const horizontal = axis === "x";
+    const width = 3.4;
+    const length = 7.2;
+    const segments = 6;
+    const segmentLength = length / segments;
+
+    for (let i = 0; i < segments; i += 1) {
+      const height = topHeight * ((i + 1) / segments);
+      const offset = -length * 0.5 + segmentLength * (i + 0.5);
+      const stepX = x + (horizontal ? offset : 0);
+      const stepZ = z + (horizontal ? 0 : offset);
+      const step = this.addCollidableBox({
+        x: stepX,
+        y: height * 0.5,
+        z: stepZ,
+        w: horizontal ? segmentLength + 0.02 : width,
+        h: height,
+        d: horizontal ? width : segmentLength + 0.02,
+        material: this.worldMaterials.warmWall,
+      });
+      step.material = this.worldMaterials.warmWall;
+      this.addWalkSurfaceRect(
+        stepX,
+        stepZ,
+        (horizontal ? segmentLength : width) - 0.08,
+        (horizontal ? width : segmentLength) - 0.08,
+        height,
+      );
+    }
+
+    const strip = new THREE.Mesh(
+      new THREE.BoxGeometry(horizontal ? length + 0.22 : width + 0.18, 0.08, horizontal ? width + 0.18 : length + 0.22),
+      new THREE.MeshStandardMaterial({
+        color: accent,
+        emissive: accent,
+        emissiveIntensity: 0.32,
+        roughness: 0.18,
+        metalness: 0.4,
+      }),
+    );
+    strip.position.set(x, 0.06, z);
+    this.scene.add(strip);
   }
 
   addTraversalRoutes() {
@@ -4457,6 +4524,7 @@ class Game {
     this.player.stuckTime = 0;
     this.player.avatarYawOffset = 0;
     this.player.avatarYawTarget = 0;
+    this.ultimateState.charge = 0;
     this.damageFeedback.flash = 0;
     this.damageFeedback.direction = 0;
     this.damageFeedback.angle = 0;
@@ -5282,6 +5350,119 @@ class Game {
     });
   }
 
+  castUltimateNova() {
+    if (!this.isGameplayActive() || this.gameOver || this.ultimateState.charge < this.ultimateState.max) {
+      return;
+    }
+
+    this.ultimateState.charge = 0;
+    const center = this.playerObject.position.clone();
+    center.y = this.getGroundHeightAt(center.clone(), this.playerObject.position.y) - CONFIG.playerHeight + 0.08;
+    this.spawnUltimateNova(center);
+    this.showAnnouncement("FROST NOVA", 1.1, "#d7f6ff");
+    ui.statusNote.textContent = "냉기 충격파가 바닥을 타고 퍼져나갑니다. 가까이 몰린 적을 정리하기 좋습니다.";
+    this.weaponKick = Math.max(this.weaponKick, 0.26);
+    this.crosshairKick = Math.max(this.crosshairKick, 0.3);
+    this.audio.pulse({ frequency: 140, slideTo: 40, duration: 0.44, startGain: 0.16, type: "sawtooth" });
+    this.audio.pulse({ frequency: 420, slideTo: 980, duration: 0.22, startGain: 0.08, type: "triangle" });
+  }
+
+  spawnUltimateNova(position) {
+    const group = new THREE.Group();
+    group.position.copy(position);
+
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.8, 2, 0.08, 40),
+      new THREE.MeshStandardMaterial({
+        color: 0xdff7ff,
+        emissive: 0x9fe7ff,
+        emissiveIntensity: 0.32,
+        roughness: 0.14,
+        metalness: 0.04,
+        transparent: true,
+        opacity: 0.78,
+      }),
+    );
+    disc.position.y = 0.04;
+    group.add(disc);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.2, 0.12, 12, 56),
+      new THREE.MeshBasicMaterial({
+        color: 0x9fe7ff,
+        transparent: true,
+        opacity: 0.88,
+      }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.1;
+    group.add(ring);
+
+    const innerRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.7, 0.06, 10, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.6,
+      }),
+    );
+    innerRing.rotation.x = Math.PI / 2;
+    innerRing.position.y = 0.14;
+    group.add(innerRing);
+
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.cyan,
+        color: 0x9fe7ff,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    glow.position.y = 0.3;
+    glow.scale.set(4.4, 4.4, 1);
+    group.add(glow);
+
+    for (let i = 0; i < 8; i += 1) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const shard = new THREE.Mesh(
+        new THREE.OctahedronGeometry(rand(0.16, 0.26), 0),
+        new THREE.MeshStandardMaterial({
+          color: 0xf2fbff,
+          emissive: 0xe6fbff,
+          emissiveIntensity: 0.48,
+          roughness: 0.12,
+          metalness: 0.04,
+          transparent: true,
+          opacity: 0.92,
+        }),
+      );
+      shard.position.set(Math.cos(angle) * 1.6, rand(0.24, 0.54), Math.sin(angle) * 1.6);
+      group.add(shard);
+    }
+
+    this.scene.add(group);
+    this.effects.push({
+      object: group,
+      velocity: new THREE.Vector3(),
+      gravity: 0,
+      life: 1.15,
+      total: 1.15,
+      ultimate: true,
+      radius: 0,
+      maxRadius: 10.8,
+      hitEnemies: new Set(),
+      damage: 88 * this.damageMultiplier,
+      slowFactor: 0.34,
+      slowDuration: 1.8,
+      disc,
+      ring,
+      innerRing,
+      glow,
+    });
+  }
+
   damageEnemiesInRadius(position, radius, damage, ignoreEnemy = null) {
     let hitCount = 0;
     for (const enemy of [...this.enemies]) {
@@ -5527,6 +5708,7 @@ class Game {
     this.combo = clamp(this.combo + 1, 1, 8);
     this.score += enemy.type.score * this.combo;
     this.progression.cores += enemy.type.cores || 0;
+    this.gainUltimateCharge(enemy.type.boss ? 100 : enemy.typeName === "bruiser" ? 28 : enemy.typeName === "striker" ? 16 : 14);
     this.saveProgression();
     if (this.score > this.bestScore) {
       this.bestScore = this.score;
@@ -6128,6 +6310,34 @@ class Game {
         effect.disc.material.opacity = 0.46 + Math.sin(elapsed * 5.2) * 0.08;
       }
 
+      if (effect.ultimate) {
+        const progress = clamp(1 - effect.life / effect.total, 0, 1);
+        effect.radius = THREE.MathUtils.lerp(0.6, effect.maxRadius, progress);
+        effect.object.rotation.y += dt * 0.8;
+        effect.ring.scale.setScalar(Math.max(0.2, effect.radius / 1.2));
+        effect.innerRing.scale.setScalar(Math.max(0.2, effect.radius / 2.1));
+        effect.glow.scale.setScalar(3.6 + effect.radius * 1.6);
+        effect.disc.scale.setScalar(Math.max(0.4, effect.radius / 1.8));
+        effect.ring.material.opacity = 0.92 - progress * 0.42;
+        effect.innerRing.material.opacity = 0.62 - progress * 0.28;
+        effect.glow.material.opacity = 0.34 - progress * 0.18;
+
+        for (const enemy of [...this.enemies]) {
+          if (!enemy.alive || effect.hitEnemies.has(enemy)) {
+            continue;
+          }
+          const distance = enemy.group.position.distanceTo(effect.object.position);
+          if (distance > effect.radius + enemy.radius * 0.55) {
+            continue;
+          }
+          const center = enemy.group.position.clone().add(new THREE.Vector3(0, enemy.type.eyeHeight * 0.42, 0));
+          enemy.applyFrost(effect.slowFactor, effect.slowDuration);
+          enemy.takeDamage(effect.damage, center, false);
+          this.spawnImpact(center, 0xd8f7ff, 8, 5.4);
+          effect.hitEnemies.add(enemy);
+        }
+      }
+
       if (effect.velocity.lengthSq() > 0) {
         effect.velocity.y -= effect.gravity * dt;
         effect.object.position.addScaledVector(effect.velocity, dt);
@@ -6345,20 +6555,17 @@ class Game {
     ui.weaponLabel.textContent = this.getActiveWeapon().label;
     ui.ammo.textContent = String(this.getActiveWeaponState().ammo);
     ui.ammoMax.textContent = String(this.getActiveWeapon().magSize);
-    ui.weaponSlotRifle.textContent = "1 ICE SIGIL";
+    ui.weaponSlotRifle.textContent = "1 RIFLE";
     ui.weaponSlotLance.textContent = "2 SHOTGUN";
-    ui.reloadState.textContent = this.reloadTimer > 0
-      ? this.activeWeaponId === "rifle"
-        ? "RECHARGING"
-        : "RELOADING"
-      : this.activeWeaponId === "rifle"
-        ? "SIGIL READY"
-        : "READY";
+    ui.reloadState.textContent = this.reloadTimer > 0 ? "RELOADING" : "READY";
     ui.combo.textContent = `COMBO x${this.combo}`;
     ui.weaponSlotRifle.classList.toggle("active", this.activeWeaponId === "rifle");
     ui.weaponSlotLance.classList.toggle("active", this.activeWeaponId === "lance");
     ui.grenadeCount.textContent = `3 GRENADE x${this.grenadeState.ammo}`;
     ui.grenadeCount.classList.toggle("active", this.grenadeState.cooldown <= 0 && this.grenadeState.ammo > 0);
+    const ultPercent = Math.round((this.ultimateState.charge / this.ultimateState.max) * 100);
+    ui.ultimateSlot.textContent = this.ultimateState.charge >= this.ultimateState.max ? "F ULT READY" : `F ULT ${ultPercent}%`;
+    ui.ultimateSlot.classList.toggle("active", this.ultimateState.charge >= this.ultimateState.max);
 
     for (const key of UPGRADE_KEYS) {
       ui[`upgrade${key[0].toUpperCase()}${key.slice(1)}Level`].textContent = `Lv.${this.progression[key]}`;
