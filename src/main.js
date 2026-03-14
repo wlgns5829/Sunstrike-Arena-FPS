@@ -9,15 +9,15 @@ const CONFIG = {
   playerHeight: 1.74,
   playerRadius: 0.58,
   gravity: 26,
-  jumpVelocity: 9.6,
+  jumpVelocity: 10.8,
   walkSpeed: 8.4,
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
   touchLookSensitivity: 0.0019,
   touchLookDeadzone: 0.4,
-  stepAssistHeight: 0.76,
-  vaultBoost: 6.4,
+  stepAssistHeight: 0.92,
+  vaultBoost: 7.2,
   thirdPersonDistance: 6.8,
   thirdPersonHeight: 0.36,
   thirdPersonShoulder: 0.46,
@@ -313,6 +313,11 @@ class AudioSystem {
     this.sfxBus = null;
     this.musicBus = null;
     this.musicFilter = null;
+    this.musicEchoSend = null;
+    this.musicEchoDelay = null;
+    this.musicEchoFeedback = null;
+    this.musicEchoFilter = null;
+    this.musicEchoReturn = null;
     this.musicReady = false;
     this.music = {
       nextStepTime: 0,
@@ -332,7 +337,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.64;
+      this.master.gain.value = 0.56;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -343,9 +348,27 @@ class AudioSystem {
       this.musicBus.gain.value = 0.0001;
       this.musicFilter = this.context.createBiquadFilter();
       this.musicFilter.type = "lowpass";
-      this.musicFilter.frequency.value = 2800;
+      this.musicFilter.frequency.value = 2400;
       this.musicBus.connect(this.musicFilter);
       this.musicFilter.connect(this.master);
+      this.musicEchoSend = this.context.createGain();
+      this.musicEchoSend.gain.value = 0.0001;
+      this.musicEchoDelay = this.context.createDelay(1);
+      this.musicEchoDelay.delayTime.value = 0.28;
+      this.musicEchoFeedback = this.context.createGain();
+      this.musicEchoFeedback.gain.value = 0.24;
+      this.musicEchoFilter = this.context.createBiquadFilter();
+      this.musicEchoFilter.type = "lowpass";
+      this.musicEchoFilter.frequency.value = 1700;
+      this.musicEchoReturn = this.context.createGain();
+      this.musicEchoReturn.gain.value = 0.16;
+      this.musicFilter.connect(this.musicEchoSend);
+      this.musicEchoSend.connect(this.musicEchoDelay);
+      this.musicEchoDelay.connect(this.musicEchoFilter);
+      this.musicEchoFilter.connect(this.musicEchoReturn);
+      this.musicEchoReturn.connect(this.master);
+      this.musicEchoFilter.connect(this.musicEchoFeedback);
+      this.musicEchoFeedback.connect(this.musicEchoDelay);
       this.initMusic();
     }
 
@@ -365,7 +388,7 @@ class AudioSystem {
 
     const droneFilter = this.context.createBiquadFilter();
     droneFilter.type = "lowpass";
-    droneFilter.frequency.value = 360;
+    droneFilter.frequency.value = 240;
 
     const subGain = this.context.createGain();
     subGain.gain.value = 0.0001;
@@ -373,16 +396,16 @@ class AudioSystem {
     shimmerGain.gain.value = 0.0001;
 
     const subOscA = this.context.createOscillator();
-    subOscA.type = "sawtooth";
+    subOscA.type = "triangle";
     subOscA.frequency.value = midiToFrequency(45);
 
     const subOscB = this.context.createOscillator();
-    subOscB.type = "triangle";
+    subOscB.type = "sine";
     subOscB.frequency.value = midiToFrequency(57);
 
     const shimmerOsc = this.context.createOscillator();
-    shimmerOsc.type = "square";
-    shimmerOsc.frequency.value = midiToFrequency(69);
+    shimmerOsc.type = "triangle";
+    shimmerOsc.frequency.value = midiToFrequency(64);
 
     subOscA.connect(subGain);
     subOscB.connect(subGain);
@@ -407,7 +430,7 @@ class AudioSystem {
 
     const orchestraFilter = this.context.createBiquadFilter();
     orchestraFilter.type = "lowpass";
-    orchestraFilter.frequency.value = 2800;
+    orchestraFilter.frequency.value = 2200;
 
     const anthemGain = this.context.createGain();
     anthemGain.gain.value = 0.0001;
@@ -419,26 +442,26 @@ class AudioSystem {
     choirBassGain.gain.value = 0.0001;
 
     const anthemOscA = this.context.createOscillator();
-    anthemOscA.type = "sawtooth";
+    anthemOscA.type = "triangle";
     anthemOscA.frequency.value = midiToFrequency(57);
-    anthemOscA.detune.value = -6;
+    anthemOscA.detune.value = -3;
 
     const anthemOscB = this.context.createOscillator();
-    anthemOscB.type = "triangle";
+    anthemOscB.type = "sine";
     anthemOscB.frequency.value = midiToFrequency(64);
-    anthemOscB.detune.value = 5;
+    anthemOscB.detune.value = 2;
 
     const choirOsc = this.context.createOscillator();
     choirOsc.type = "sine";
     choirOsc.frequency.value = midiToFrequency(69);
     const brassOsc = this.context.createOscillator();
-    brassOsc.type = "sawtooth";
-    brassOsc.frequency.value = midiToFrequency(76);
-    brassOsc.detune.value = 9;
+    brassOsc.type = "triangle";
+    brassOsc.frequency.value = midiToFrequency(72);
+    brassOsc.detune.value = 4;
     const choirBassOsc = this.context.createOscillator();
-    choirBassOsc.type = "triangle";
+    choirBassOsc.type = "sine";
     choirBassOsc.frequency.value = midiToFrequency(52);
-    choirBassOsc.detune.value = -4;
+    choirBassOsc.detune.value = -2;
 
     anthemOscA.connect(anthemGain);
     anthemOscB.connect(anthemGain);
@@ -598,7 +621,7 @@ class AudioSystem {
     this.pulse({
       frequency: 56,
       slideTo: 28,
-      duration: 0.24,
+      duration: 0.28,
       startGain: gain,
       type: "sine",
       when,
@@ -607,50 +630,50 @@ class AudioSystem {
     this.pulse({
       frequency: 112,
       slideTo: 62,
-      duration: 0.09,
-      startGain: gain * 0.32,
-      type: "triangle",
+      duration: 0.12,
+      startGain: gain * 0.18,
+      type: "sine",
       when,
       destination: this.musicBus,
     });
-    this.noise(0.04, gain * 0.08, when, this.musicBus, "lowpass", 180);
+    this.noise(0.03, gain * 0.03, when, this.musicBus, "lowpass", 220);
   }
 
   grandHit(when, gain = 0.09, boss = false) {
     this.pulse({
       frequency: boss ? 82 : 74,
       slideTo: 34,
-      duration: boss ? 0.48 : 0.38,
-      startGain: gain * 1.35,
-      type: "sawtooth",
-      when,
-      destination: this.musicBus,
-    });
-    this.pulse({
-      frequency: boss ? 392 : 330,
-      slideTo: boss ? 494 : 392,
-      duration: 0.34,
-      startGain: gain * 0.64,
+      duration: boss ? 0.54 : 0.44,
+      startGain: gain * 1.1,
       type: "triangle",
       when,
       destination: this.musicBus,
     });
     this.pulse({
-      frequency: boss ? 622 : 554,
-      slideTo: boss ? 466 : 392,
-      duration: boss ? 0.42 : 0.34,
-      startGain: gain * 0.42,
-      type: "sawtooth",
+      frequency: boss ? 294 : 262,
+      slideTo: boss ? 392 : 349,
+      duration: 0.42,
+      startGain: gain * 0.34,
+      type: "sine",
+      when,
+      destination: this.musicBus,
+    });
+    this.pulse({
+      frequency: boss ? 466 : 392,
+      slideTo: boss ? 523 : 440,
+      duration: boss ? 0.5 : 0.38,
+      startGain: gain * 0.2,
+      type: "triangle",
       when,
       destination: this.musicBus,
     });
     this.noise(
-      boss ? 0.28 : 0.22,
-      gain * 0.26,
+      boss ? 0.2 : 0.14,
+      gain * 0.08,
       when,
       this.musicBus,
-      "bandpass",
-      boss ? 1400 : 1100,
+      "lowpass",
+      boss ? 720 : 560,
     );
   }
 
@@ -696,62 +719,62 @@ class AudioSystem {
 
     const progression = state.boss
       ? [
-          [45, 48, 52, 57],
-          [43, 46, 50, 55],
+          [38, 41, 45, 50],
+          [36, 40, 43, 48],
+          [34, 38, 41, 46],
           [41, 45, 48, 53],
-          [46, 50, 53, 58],
         ]
       : [
-          [45, 48, 52, 57],
+          [38, 41, 45, 50],
+          [34, 38, 41, 46],
           [41, 45, 48, 53],
           [36, 40, 43, 48],
-          [43, 47, 50, 55],
         ];
     const chord = progression[Math.floor(step / 4) % progression.length];
     const arpPattern = state.boss
-      ? [0, 2, 1, 3, 2, 1, 0, 2, 1, 3, 2, 1, 0, 2, 1, 3]
-      : [0, 2, 1, 2, 0, 2, 1, 3, 0, 2, 1, 2, 0, 2, 1, 3];
-    const bassSteps = state.boss ? [0, 3, 4, 7, 8, 11, 12, 15] : [0, 4, 8, 12];
-    const snareSteps = state.boss ? [2, 6, 10, 14] : [4, 12];
+      ? [0, 1, 2, 1, 3, 2, 1, 2, 0, 1, 2, 1, 3, 2, 1, 2]
+      : [0, 1, 2, 1, 0, 1, 2, 3, 0, 1, 2, 1, 0, 1, 2, 3];
+    const bassSteps = state.boss ? [0, 4, 8, 10, 12, 15] : [0, 4, 8, 12];
+    const snareSteps = state.boss ? [4, 10, 12, 14] : [4, 12];
 
     if (step % 4 === 0) {
-      this.kick(when, state.boss ? 0.3 : 0.22 + state.intensity * 0.1);
-    } else if (state.boss && step % 2 === 0) {
-      this.kick(when, 0.17);
+      this.kick(when, state.boss ? 0.24 : 0.16 + state.intensity * 0.06);
+    } else if (state.boss && step % 8 === 6) {
+      this.kick(when, 0.11);
     }
 
-    if (step % 8 === 0) {
-      this.grandHit(when, state.boss ? 0.2 : 0.13 + state.intensity * 0.05, state.boss);
+    if (step % 16 === 0) {
+      this.grandHit(when, state.boss ? 0.16 : 0.11 + state.intensity * 0.035, state.boss);
     }
 
     if (step % 8 === 0) {
       this.scheduleMusicNote({
         note: chord[0] - 12,
         when,
-        duration: stepDuration * 7.4,
-        gain: state.boss ? 0.098 : 0.074,
+        duration: stepDuration * 7.8,
+        gain: state.boss ? 0.074 : 0.052,
         type: "sine",
       });
       this.scheduleMusicNote({
         note: chord[2],
         when,
-        duration: stepDuration * 6.2,
-        gain: state.boss ? 0.064 : 0.046,
+        duration: stepDuration * 7.2,
+        gain: state.boss ? 0.048 : 0.03,
+        type: "sine",
+      });
+      this.scheduleMusicNote({
+        note: chord[3] + 12,
+        when,
+        duration: stepDuration * 7.8,
+        gain: state.boss ? 0.056 : 0.028 + state.intensity * 0.02,
         type: "triangle",
       });
       this.scheduleMusicNote({
-        note: chord[3] + (state.boss ? 12 : 7),
-        when,
-        duration: stepDuration * (state.boss ? 7.8 : 7.2),
-        gain: state.boss ? 0.094 : 0.058 + state.intensity * 0.03,
-        type: state.boss ? "sawtooth" : "triangle",
-      });
-      this.scheduleMusicNote({
-        note: chord[1] + (state.boss ? 12 : 0),
+        note: chord[1],
         when,
         duration: stepDuration * 5.6,
-        gain: state.boss ? 0.08 : 0.038 + state.intensity * 0.024,
-        type: "sawtooth",
+        gain: state.boss ? 0.034 : 0.018 + state.intensity * 0.014,
+        type: "triangle",
       });
     }
 
@@ -759,51 +782,53 @@ class AudioSystem {
       this.scheduleMusicNote({
         note: chord[0] - 12,
         when,
-        duration: stepDuration * (state.boss ? 1.35 : 1.7),
-        gain: state.boss ? 0.16 : 0.12,
-        type: state.boss ? "sawtooth" : "triangle",
+        duration: stepDuration * (state.boss ? 1.45 : 1.9),
+        gain: state.boss ? 0.1 : 0.074,
+        type: "triangle",
         slideTo: chord[0] - 24,
       });
     }
 
-    const arpNote = chord[arpPattern[step % arpPattern.length]];
-    this.scheduleMusicNote({
-      note: arpNote + (state.boss ? 12 : 0),
-      when,
-      duration: stepDuration * 0.9,
-      gain: 0.07 + state.intensity * 0.045,
-      type: state.boss ? "square" : "triangle",
-    });
+    if (step % 2 === 0 || state.boss) {
+      const arpNote = chord[arpPattern[step % arpPattern.length]];
+      this.scheduleMusicNote({
+        note: arpNote + (state.boss ? 12 : 0),
+        when,
+        duration: stepDuration * 1.1,
+        gain: state.boss ? 0.05 : 0.026 + state.intensity * 0.018,
+        type: state.boss ? "triangle" : "sine",
+      });
+    }
 
     if (state.intensity > 0.45 || state.boss) {
       this.scheduleMusicNote({
-        note: chord[(step + 1) % chord.length] + (state.boss ? 19 : 12),
+        note: chord[(step + 2) % chord.length] + 12,
         when,
-        duration: stepDuration * 1.35,
-        gain: state.boss ? 0.09 : 0.04 + state.intensity * 0.04,
-        type: state.boss ? "sawtooth" : "sine",
+        duration: stepDuration * 1.8,
+        gain: state.boss ? 0.05 : 0.018 + state.intensity * 0.02,
+        type: "sine",
       });
     }
 
     if (state.intensity > 0.25 || state.boss) {
       this.noise(
         stepDuration * 0.22,
-        state.boss ? 0.052 : 0.034,
+        state.boss ? 0.016 : 0.01,
         when,
         this.musicBus,
-        "bandpass",
-        state.boss ? 5200 : 4200,
+        "highpass",
+        state.boss ? 3600 : 3000,
       );
     }
 
     if (snareSteps.includes(step % 16)) {
       this.noise(
         stepDuration * 0.38,
-        state.boss ? 0.08 : 0.056,
+        state.boss ? 0.032 : 0.022,
         when,
         this.musicBus,
         "highpass",
-        1800,
+        1400,
       );
     }
   }
@@ -815,10 +840,10 @@ class AudioSystem {
 
     const now = this.context.currentTime;
     const paused = !state.started || state.gameOver || state.paused;
-    const bpm = state.boss ? 148 : state.intensity > 0.72 ? 136 : state.intensity > 0.3 ? 124 : 112;
+    const bpm = state.boss ? 126 : state.intensity > 0.72 ? 116 : state.intensity > 0.3 ? 106 : 96;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.045 : state.boss ? 0.64 : 0.34 + state.intensity * 0.24;
-    const targetFilter = paused ? 1800 : state.boss ? 5200 : 3200 + state.intensity * 2200;
+    const targetGain = paused ? 0.028 : state.boss ? 0.46 : 0.24 + state.intensity * 0.15;
+    const targetFilter = paused ? 1500 : state.boss ? 3600 : 2200 + state.intensity * 1400;
 
     this.music.stepDuration = stepDuration;
     this.music.targetGain = targetGain;
@@ -829,12 +854,34 @@ class AudioSystem {
     this.musicFilter.frequency.cancelScheduledValues(now);
     this.musicFilter.frequency.setValueAtTime(this.musicFilter.frequency.value, now);
     this.musicFilter.frequency.linearRampToValueAtTime(targetFilter, now + 0.3);
+    if (this.musicEchoSend && this.musicEchoFeedback && this.musicEchoReturn && this.musicEchoDelay && this.musicEchoFilter) {
+      const echoSend = paused ? 0.08 : state.boss ? 0.2 : 0.13 + state.intensity * 0.04;
+      const echoFeedback = paused ? 0.16 : state.boss ? 0.28 : 0.2 + state.intensity * 0.05;
+      const echoReturn = paused ? 0.08 : state.boss ? 0.18 : 0.12 + state.intensity * 0.03;
+      const echoDelay = state.boss ? 0.32 : 0.28;
+      const echoCutoff = paused ? 1200 : state.boss ? 2100 : 1700 + state.intensity * 500;
+      this.musicEchoSend.gain.cancelScheduledValues(now);
+      this.musicEchoSend.gain.setValueAtTime(this.musicEchoSend.gain.value, now);
+      this.musicEchoSend.gain.linearRampToValueAtTime(echoSend, now + 0.3);
+      this.musicEchoFeedback.gain.cancelScheduledValues(now);
+      this.musicEchoFeedback.gain.setValueAtTime(this.musicEchoFeedback.gain.value, now);
+      this.musicEchoFeedback.gain.linearRampToValueAtTime(echoFeedback, now + 0.3);
+      this.musicEchoReturn.gain.cancelScheduledValues(now);
+      this.musicEchoReturn.gain.setValueAtTime(this.musicEchoReturn.gain.value, now);
+      this.musicEchoReturn.gain.linearRampToValueAtTime(echoReturn, now + 0.3);
+      this.musicEchoDelay.delayTime.cancelScheduledValues(now);
+      this.musicEchoDelay.delayTime.setValueAtTime(this.musicEchoDelay.delayTime.value, now);
+      this.musicEchoDelay.delayTime.linearRampToValueAtTime(echoDelay, now + 0.3);
+      this.musicEchoFilter.frequency.cancelScheduledValues(now);
+      this.musicEchoFilter.frequency.setValueAtTime(this.musicEchoFilter.frequency.value, now);
+      this.musicEchoFilter.frequency.linearRampToValueAtTime(echoCutoff, now + 0.3);
+    }
 
     if (this.musicDrone) {
       const rootProgression = state.boss ? [45, 43, 48, 50] : [45, 43, 50, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const droneBase = paused ? 0.02 : state.boss ? 0.16 : 0.095 + state.intensity * 0.08;
-      const shimmerBase = paused ? 0.01 : state.boss ? 0.085 : 0.042 + state.intensity * 0.042;
+      const droneBase = paused ? 0.012 : state.boss ? 0.11 : 0.06 + state.intensity * 0.04;
+      const shimmerBase = paused ? 0.008 : state.boss ? 0.04 : 0.018 + state.intensity * 0.018;
 
       this.musicDrone.subOscA.frequency.cancelScheduledValues(now);
       this.musicDrone.subOscA.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.4);
@@ -854,18 +901,18 @@ class AudioSystem {
       this.musicDrone.filter.frequency.cancelScheduledValues(now);
       this.musicDrone.filter.frequency.setValueAtTime(this.musicDrone.filter.frequency.value, now);
       this.musicDrone.filter.frequency.linearRampToValueAtTime(
-        paused ? 360 : state.boss ? 760 : 420 + state.intensity * 320,
+        paused ? 220 : state.boss ? 440 : 260 + state.intensity * 180,
         now + 0.32,
       );
     }
 
     if (this.musicOrchestra) {
-      const rootProgression = state.boss ? [57, 55, 60, 62] : [57, 55, 62, 60];
+      const rootProgression = state.boss ? [50, 48, 46, 53] : [50, 46, 53, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const anthemBase = paused ? 0.02 : state.boss ? 0.12 : 0.065 + state.intensity * 0.07;
-      const choirBase = paused ? 0.016 : state.boss ? 0.09 : 0.034 + state.intensity * 0.048;
-      const brassBase = paused ? 0.014 : state.boss ? 0.115 : 0.052 + state.intensity * 0.058;
-      const choirBassBase = paused ? 0.012 : state.boss ? 0.08 : 0.03 + state.intensity * 0.04;
+      const anthemBase = paused ? 0.014 : state.boss ? 0.09 : 0.05 + state.intensity * 0.045;
+      const choirBase = paused ? 0.012 : state.boss ? 0.065 : 0.026 + state.intensity * 0.032;
+      const brassBase = paused ? 0.01 : state.boss ? 0.075 : 0.034 + state.intensity * 0.03;
+      const choirBassBase = paused ? 0.008 : state.boss ? 0.042 : 0.018 + state.intensity * 0.02;
 
       this.musicOrchestra.anthemOscA.frequency.cancelScheduledValues(now);
       this.musicOrchestra.anthemOscA.frequency.linearRampToValueAtTime(midiToFrequency(root), now + 0.42);
@@ -874,9 +921,9 @@ class AudioSystem {
       this.musicOrchestra.choirOsc.frequency.cancelScheduledValues(now);
       this.musicOrchestra.choirOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 14 : 12)), now + 0.42);
       this.musicOrchestra.brassOsc.frequency.cancelScheduledValues(now);
-      this.musicOrchestra.brassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 19 : 16)), now + 0.42);
+      this.musicOrchestra.brassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root + (state.boss ? 16 : 12)), now + 0.42);
       this.musicOrchestra.choirBassOsc.frequency.cancelScheduledValues(now);
-      this.musicOrchestra.choirBassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root - 5), now + 0.42);
+      this.musicOrchestra.choirBassOsc.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.42);
 
       this.musicOrchestra.anthemGain.gain.cancelScheduledValues(now);
       this.musicOrchestra.anthemGain.gain.setValueAtTime(this.musicOrchestra.anthemGain.gain.value, now);
@@ -897,7 +944,7 @@ class AudioSystem {
       this.musicOrchestra.filter.frequency.cancelScheduledValues(now);
       this.musicOrchestra.filter.frequency.setValueAtTime(this.musicOrchestra.filter.frequency.value, now);
       this.musicOrchestra.filter.frequency.linearRampToValueAtTime(
-        paused ? 1600 : state.boss ? 4200 : 2600 + state.intensity * 1600,
+        paused ? 1200 : state.boss ? 2800 : 1800 + state.intensity * 900,
         now + 0.36,
       );
     }
@@ -1604,7 +1651,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-flame-mobile-b";
+    this.debugBuild = "2026-03-14-terrain-height-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -2615,14 +2662,14 @@ class Game {
     this.addFloorStripe(0, -21.5, 0.72, 7.2, 0xffd37f);
     this.addFloorStripe(0, 21.5, 0.72, 7.2, 0xffd37f);
 
-    this.addCollidableBox({ x: -34, y: 2.4, z: -18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -34, y: 2.4, z: 18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 34, y: 2.4, z: -18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 34, y: 2.4, z: 18, w: 2.4, h: 4.8, d: 28, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -18, y: 2.4, z: -34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 18, y: 2.4, z: -34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: -18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
-    this.addCollidableBox({ x: 18, y: 2.4, z: 34, w: 28, h: 4.8, d: 2.4, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -34, y: 3.3, z: -18, w: 2.6, h: 6.6, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -34, y: 3.3, z: 18, w: 2.6, h: 6.6, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 34, y: 3.3, z: -18, w: 2.6, h: 6.6, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 34, y: 3.3, z: 18, w: 2.6, h: 6.6, d: 28, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -18, y: 3.3, z: -34, w: 28, h: 6.6, d: 2.6, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 18, y: 3.3, z: -34, w: 28, h: 6.6, d: 2.6, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: -18, y: 3.3, z: 34, w: 28, h: 6.6, d: 2.6, material: this.worldMaterials.wall });
+    this.addCollidableBox({ x: 18, y: 3.3, z: 34, w: 28, h: 6.6, d: 2.6, material: this.worldMaterials.wall });
 
     this.addReflectPool(-26, -26);
     this.addReflectPool(26, -26);
@@ -2962,51 +3009,51 @@ class Game {
     this.addHeroBillboard(-40, 10.6, -16, Math.PI / 4, 0x72fff0, "SUNSPIRE");
     this.addHeroBillboard(40, 10.6, 16, -Math.PI * 0.75, 0xffd884, "BASTION");
 
-    this.addRaisedPad(0, 0, 18.4, 18.4, 0.42, 0x86f2ff);
-    this.addRaisedPad(0, -15.2, 6.2, 10.8, 0.42, 0xffd884, this.worldMaterials.warmWall);
-    this.addRaisedPad(0, 15.2, 6.2, 10.8, 0.42, 0x72fff0, this.worldMaterials.platform);
-    this.addRaisedPad(-15.2, 0, 10.8, 6.2, 0.42, 0xffd884, this.worldMaterials.warmWall);
-    this.addRaisedPad(15.2, 0, 10.8, 6.2, 0.42, 0x72fff0, this.worldMaterials.platform);
+    this.addRaisedPad(0, 0, 18.4, 18.4, 0.96, 0x86f2ff);
+    this.addRaisedPad(0, -15.2, 6.2, 10.8, 1.04, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(0, 15.2, 6.2, 10.8, 1.04, 0x72fff0, this.worldMaterials.platform);
+    this.addRaisedPad(-15.2, 0, 10.8, 6.2, 1.04, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(15.2, 0, 10.8, 6.2, 1.04, 0x72fff0, this.worldMaterials.platform);
 
-    this.addRaisedPad(-23.5, -18.2, 8.2, 6.4, 0.42, 0x72fff0);
-    this.addRaisedPad(23.5, 18.2, 8.2, 6.4, 0.42, 0xffd884, this.worldMaterials.warmWall);
-    this.addRaisedPad(-23.5, 18.2, 6.6, 8.2, 0.42, 0xffd884, this.worldMaterials.warmWall);
-    this.addRaisedPad(23.5, -18.2, 6.6, 8.2, 0.42, 0x72fff0);
+    this.addRaisedPad(-23.5, -18.2, 8.2, 6.4, 1.16, 0x72fff0);
+    this.addRaisedPad(23.5, 18.2, 8.2, 6.4, 1.16, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(-23.5, 18.2, 6.6, 8.2, 1.16, 0xffd884, this.worldMaterials.warmWall);
+    this.addRaisedPad(23.5, -18.2, 6.6, 8.2, 1.16, 0x72fff0);
 
     this.addTransitCar(-24.5, 6.5, "z", 0x72fff0);
     this.addTransitCar(24.5, -6.5, "z", 0xffd884);
     this.addTransitCar(-8.2, 24.5, "x", 0xffd884);
     this.addTransitCar(8.2, -24.5, "x", 0x72fff0);
 
-    this.addCoverNode(-8.8, -8.8, 3.2, 1.9, 1.5, 0x72fff0);
-    this.addCoverNode(8.8, -8.8, 3.2, 1.9, 1.5, 0xffd884);
-    this.addCoverNode(-8.8, 8.8, 3.2, 1.9, 1.5, 0xffd884);
-    this.addCoverNode(8.8, 8.8, 3.2, 1.9, 1.5, 0x72fff0);
-    this.addCoverNode(-20.5, -2.5, 4.4, 1.9, 1.62, 0x72fff0);
-    this.addCoverNode(20.5, 2.5, 4.4, 1.9, 1.62, 0xffd884);
-    this.addCoverNode(-2.5, 20.5, 1.9, 4.4, 1.62, 0xffd884);
-    this.addCoverNode(2.5, -20.5, 1.9, 4.4, 1.62, 0x72fff0);
+    this.addCoverNode(-8.8, -8.8, 3.2, 1.9, 2.02, 0x72fff0);
+    this.addCoverNode(8.8, -8.8, 3.2, 1.9, 2.02, 0xffd884);
+    this.addCoverNode(-8.8, 8.8, 3.2, 1.9, 2.02, 0xffd884);
+    this.addCoverNode(8.8, 8.8, 3.2, 1.9, 2.02, 0x72fff0);
+    this.addCoverNode(-20.5, -2.5, 4.4, 1.9, 2.24, 0x72fff0);
+    this.addCoverNode(20.5, 2.5, 4.4, 1.9, 2.24, 0xffd884);
+    this.addCoverNode(-2.5, 20.5, 1.9, 4.4, 2.24, 0xffd884);
+    this.addCoverNode(2.5, -20.5, 1.9, 4.4, 2.24, 0x72fff0);
 
     this.addPlanterBox(-14.5, -26.8, 8.4, 2.2);
     this.addPlanterBox(14.5, 26.8, 8.4, 2.2);
     this.addPlanterBox(-26.8, 14.5, 2.2, 8.4);
     this.addPlanterBox(26.8, -14.5, 2.2, 8.4);
 
-    this.addVaultFence(-4.8, 24.8, 4.2, 0.34, 0.92, 0x72fff0);
-    this.addVaultFence(4.8, -24.8, 4.2, 0.34, 0.92, 0xffd884);
-    this.addVaultFence(-24.8, -4.8, 0.34, 4.2, 0.92, 0xffd884);
-    this.addVaultFence(24.8, 4.8, 0.34, 4.2, 0.92, 0x72fff0);
+    this.addVaultFence(-4.8, 24.8, 4.4, 0.38, 1.22, 0x72fff0);
+    this.addVaultFence(4.8, -24.8, 4.4, 0.38, 1.22, 0xffd884);
+    this.addVaultFence(-24.8, -4.8, 0.38, 4.4, 1.22, 0xffd884);
+    this.addVaultFence(24.8, 4.8, 0.38, 4.4, 1.22, 0x72fff0);
 
     this.addStairTerrace(-10.2, 0, "east", 0x72fff0);
     this.addStairTerrace(10.2, 0, "west", 0xffd884);
     this.addStairTerrace(-27.8, 18.2, "east", 0x72fff0);
     this.addStairTerrace(27.8, -18.2, "west", 0xffd884);
-    this.addSlopeRamp(0, -10.6, "z", 0x72fff0, 1.34);
-    this.addSlopeRamp(0, 10.6, "z", 0xffd884, 1.34);
-    this.addSlopeRamp(-10.6, 0, "x", 0x72fff0, 1.34);
-    this.addSlopeRamp(10.6, 0, "x", 0xffd884, 1.34);
-    this.addSlopeRamp(-24.8, 18.2, "x", 0x72fff0, 1.22);
-    this.addSlopeRamp(24.8, -18.2, "x", 0xffd884, 1.22);
+    this.addSlopeRamp(0, -10.6, "z", 0x72fff0, 1.96);
+    this.addSlopeRamp(0, 10.6, "z", 0xffd884, 1.96);
+    this.addSlopeRamp(-10.6, 0, "x", 0x72fff0, 1.96);
+    this.addSlopeRamp(10.6, 0, "x", 0xffd884, 1.96);
+    this.addSlopeRamp(-24.8, 18.2, "x", 0x72fff0, 1.72);
+    this.addSlopeRamp(24.8, -18.2, "x", 0xffd884, 1.72);
 
     this.addFloorStripe(0, 0, 24, 0.82, 0x86f2ff);
     this.addFloorStripe(0, 0, 0.82, 24, 0xffd884);
@@ -3076,9 +3123,9 @@ class Game {
   addStairTerrace(x, z, side, accent) {
     const deckWidth = 4.2;
     const deckDepth = 3.8;
-    const deckHeight = 1.44;
-    const steps = 4;
-    const stepWidth = 0.78;
+    const deckHeight = 2.16;
+    const steps = 5;
+    const stepWidth = 0.94;
     const stepHeight = deckHeight / steps;
 
     const deck = this.addCollidableBox({
@@ -3146,8 +3193,8 @@ class Game {
   addSlopeRamp(x, z, axis, accent, topHeight = 1.34) {
     const horizontal = axis === "x";
     const width = 3.4;
-    const length = 7.2;
-    const segments = 6;
+    const length = 8.6;
+    const segments = 7;
     const segmentLength = length / segments;
 
     for (let i = 0; i < segments; i += 1) {
@@ -3552,6 +3599,7 @@ class Game {
       material: this.worldMaterials.planter,
     });
     body.material = this.worldMaterials.planter;
+    this.addWalkSurfaceRect(x, z, Math.max(0.28, w - 0.14), Math.max(0.28, d - 0.14), h);
 
     const topTrim = new THREE.Mesh(
       new THREE.BoxGeometry(w + 0.1, 0.12, d + 0.1),
@@ -3606,6 +3654,7 @@ class Game {
       material: this.worldMaterials.warmWall,
     });
     body.material = this.worldMaterials.warmWall;
+    this.addWalkSurfaceRect(x, z, bodyW - 0.54, bodyD - 0.54, bodyH);
 
     const roof = new THREE.Mesh(
       new THREE.BoxGeometry(bodyW * 0.88, 0.18, bodyD * 0.88),
