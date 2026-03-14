@@ -45,6 +45,142 @@ body.touch-mode {
   user-select: none;
 }
 
+body.touch-minimal-ui .brand-block,
+body.touch-minimal-ui .minimap-card,
+body.touch-minimal-ui .objective,
+body.touch-minimal-ui .look-pad {
+  display: none !important;
+}
+
+body.touch-minimal-ui .hud {
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+}
+
+body.touch-minimal-ui .hud-top,
+body.touch-minimal-ui .hud-bottom {
+  gap: 8px;
+}
+
+body.touch-minimal-ui .hud-top-right {
+  width: 100%;
+  align-items: flex-end;
+}
+
+body.touch-minimal-ui .stat-chip-group {
+  gap: 6px;
+}
+
+body.touch-minimal-ui .stat-chip {
+  min-width: 70px;
+  padding: 8px 10px;
+  border-radius: 14px;
+}
+
+body.touch-minimal-ui .stat-chip span {
+  font-size: 9px;
+}
+
+body.touch-minimal-ui .stat-chip strong {
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+body.touch-minimal-ui .pause-chip {
+  min-width: 74px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+}
+
+body.touch-minimal-ui .announcer-wrap {
+  gap: 6px;
+}
+
+body.touch-minimal-ui .announcer {
+  min-height: 0;
+  max-width: min(76vw, 320px);
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+body.touch-minimal-ui .player-vitals,
+body.touch-minimal-ui .boss-hud {
+  width: min(220px, 62vw);
+  padding: 8px 10px;
+  border-radius: 16px;
+}
+
+body.touch-minimal-ui .status-panel {
+  display: none;
+}
+
+body.touch-minimal-ui .ammo-panel {
+  min-width: min(156px, 44vw);
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+
+body.touch-minimal-ui .ammo-main strong {
+  font-size: clamp(24px, 7vw, 34px);
+}
+
+body.touch-minimal-ui .ammo-main span {
+  font-size: 18px;
+}
+
+body.touch-minimal-ui .weapon-slots {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+body.touch-minimal-ui .weapon-slot {
+  padding: 6px 8px;
+  font-size: 10px;
+}
+
+body.touch-minimal-ui #overlay.hidden ~ .mobile-controls {
+  gap: 8px;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+}
+
+body.touch-minimal-ui .touch-pad {
+  width: min(28vw, 120px);
+  height: min(28vw, 120px);
+}
+
+body.touch-minimal-ui .touch-ring {
+  width: 78px;
+  height: 78px;
+}
+
+body.touch-minimal-ui .touch-knob {
+  width: 46px;
+  height: 46px;
+}
+
+body.touch-minimal-ui .mobile-button.primary-circle {
+  width: 66px;
+  min-width: 66px;
+  height: 66px;
+  min-height: 66px;
+  font-size: 11px;
+}
+
+body.touch-minimal-ui .mobile-button.compact {
+  min-width: 50px;
+  min-height: 36px;
+  padding: 6px 8px;
+  font-size: 10px;
+  border-radius: 12px;
+}
+
+body.touch-minimal-ui.viewport-portrait .stat-chip-group .stat-chip:nth-child(2),
+body.touch-minimal-ui.viewport-portrait .stat-chip-group .stat-chip:nth-child(3) {
+  display: none;
+}
+
 #game {
   position: fixed;
   inset: 0;

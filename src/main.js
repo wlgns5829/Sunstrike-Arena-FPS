@@ -222,6 +222,7 @@ const ui = {
   score: document.querySelector("#score-value"),
   best: document.querySelector("#best-value"),
   hudCores: document.querySelector("#hud-cores-value"),
+  brandBlock: document.querySelector(".brand-block"),
   announcer: document.querySelector("#announcer"),
   objective: document.querySelector("#objective"),
   bossHud: document.querySelector("#boss-hud"),
@@ -248,6 +249,7 @@ const ui = {
   statusNote: document.querySelector("#status-note"),
   pauseButton: document.querySelector("#pause-button"),
   minimap: document.querySelector("#minimap"),
+  minimapCard: document.querySelector(".minimap-card"),
   minimapLabel: document.querySelector("#minimap-label"),
   coresTotal: document.querySelector("#cores-total"),
   upgradeDamage: document.querySelector("#upgrade-damage"),
@@ -1699,7 +1701,6 @@ class Game {
     }
 
     this.audio = new AudioSystem();
-    document.body.classList.toggle("touch-mode", this.isTouchDevice);
     this.minimapContext = ui.minimap.getContext("2d");
     this.minimapRefreshTimer = 0;
     this.glowTextures = {
@@ -1740,7 +1741,7 @@ class Game {
       look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-mobile-layout-b";
+    this.debugBuild = "2026-03-14-mobile-layout-c";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1752,6 +1753,7 @@ class Game {
     };
     this.menuOrbit = 0;
     this.viewportMode = viewportWidth >= viewportHeight ? "landscape" : "portrait";
+    this.applyMobileUiState();
     this.time = 0;
     this.started = false;
     this.gameOver = false;
@@ -2430,6 +2432,25 @@ class Game {
     return { width, height };
   }
 
+  applyMobileUiState() {
+    document.body.classList.toggle("touch-mode", this.isTouchDevice);
+    document.body.classList.toggle("touch-minimal-ui", this.isTouchDevice);
+    document.body.classList.toggle("viewport-portrait", this.viewportMode === "portrait");
+    document.body.classList.toggle("viewport-landscape", this.viewportMode === "landscape");
+    if (ui.lookPad) {
+      ui.lookPad.hidden = this.isTouchDevice;
+    }
+    if (ui.minimapCard) {
+      ui.minimapCard.hidden = this.isTouchDevice;
+    }
+    if (ui.brandBlock) {
+      ui.brandBlock.hidden = this.isTouchDevice;
+    }
+    if (ui.objective) {
+      ui.objective.hidden = this.isTouchDevice;
+    }
+  }
+
   onResize() {
     const { width, height } = this.updateViewportMetrics();
     const nextViewportMode = width >= height ? "landscape" : "portrait";
@@ -2439,6 +2460,7 @@ class Game {
     } else {
       this.viewportMode = nextViewportMode;
     }
+    this.applyMobileUiState();
     this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
