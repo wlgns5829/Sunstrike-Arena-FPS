@@ -20,7 +20,7 @@ const CONFIG = {
   vaultBoost: 5.6,
   thirdPersonDistance: 6.8,
   thirdPersonHeight: 0.36,
-  thirdPersonShoulder: 1.18,
+  thirdPersonShoulder: 0.46,
 };
 
 const ENEMY_TYPES = {
@@ -131,21 +131,28 @@ const ENEMY_TYPES = {
 
 const WEAPON_DEFS = {
   rifle: {
-    label: "SOLAR VEIL RIFLE",
-    magSize: 30,
-    fireInterval: 0.11,
-    reloadTime: 1.26,
-    damage: 13,
-    critDamage: 18,
-    crosshairBase: 7,
+    label: "FROST SIGIL",
+    magSize: 6,
+    fireInterval: 0.48,
+    reloadTime: 1.5,
+    damage: 12,
+    critDamage: 12,
+    crosshairBase: 11,
     explosive: false,
-    tracerColor: 0x8ef9ff,
-    aimTracerColor: 0xd6ffff,
-    fov: 69,
+    field: true,
+    fieldRadius: 4.4,
+    fieldDuration: 3.6,
+    fieldTick: 0.45,
+    fieldDamage: 18,
+    fieldSlow: 0.48,
+    fieldSlowDuration: 0.65,
+    tracerColor: 0x9fe7ff,
+    aimTracerColor: 0xe8fbff,
+    fov: 72,
     hipFov: 82,
-    accent: 0x345978,
-    body: 0xd8e2ec,
-    grip: 0x161c24,
+    accent: 0x83dfff,
+    body: 0xe8f8ff,
+    grip: 0x1a2440,
   },
   lance: {
     label: "THUNDER HOWL SHOTGUN",
@@ -517,15 +524,16 @@ class AudioSystem {
       return;
     }
 
-    this.pulse({ frequency: 540, slideTo: 180, duration: 0.06, startGain: 0.09, type: "square", when: now });
-    this.pulse({ frequency: 240, slideTo: 120, duration: 0.08, startGain: 0.06, type: "triangle", when: now });
-    this.noise(0.045, 0.05, now, null, "highpass", 2200);
+    this.pulse({ frequency: 760, slideTo: 220, duration: 0.14, startGain: 0.12, type: "triangle", when: now });
+    this.pulse({ frequency: 360, slideTo: 120, duration: 0.18, startGain: 0.08, type: "sine", when: now });
+    this.pulse({ frequency: 1120, slideTo: 540, duration: 0.08, startGain: 0.05, type: "square", when: now });
+    this.noise(0.08, 0.03, now, null, "highpass", 2800);
   }
 
   reload(weaponId = "rifle") {
     if (weaponId === "rifle") {
-      this.pulse({ frequency: 420, slideTo: 160, duration: 0.16, startGain: 0.08, type: "triangle" });
-      this.pulse({ frequency: 220, slideTo: 540, duration: 0.13, startGain: 0.06, type: "sine" });
+      this.pulse({ frequency: 260, slideTo: 620, duration: 0.2, startGain: 0.08, type: "sine" });
+      this.pulse({ frequency: 480, slideTo: 880, duration: 0.24, startGain: 0.05, type: "triangle" });
       return;
     }
 
@@ -868,6 +876,8 @@ class Enemy {
     this.recoil = 0;
     this.hitFlash = 0;
     this.moveBlend = 0;
+    this.frostTimer = 0;
+    this.frostFactor = 1;
     this.hitMeshes = [];
     this.group = new THREE.Group();
     this.group.position.copy(spawnPosition);
@@ -1174,6 +1184,11 @@ class Enemy {
       return;
     }
 
+    this.frostTimer = Math.max(0, this.frostTimer - dt);
+    if (this.frostTimer <= 0) {
+      this.frostFactor = 1;
+    }
+
     const playerPosition = this.game.playerObject.position;
     const playerEye = this.game.getPlayerEyePosition();
     this.hoverTime += dt * (1.8 + this.type.scale * 0.25);
@@ -1215,7 +1230,10 @@ class Enemy {
     let moveAmount = 0;
     if (desired.lengthSq() > 0.001) {
       const pressureBoost = this.type.melee ? clamp((7.2 - distance) / 7.2, 0, 1) : 0;
-      const moveSpeed = this.type.speed * (1 + pressureBoost * 0.38 + (this.typeName === "striker" ? 0.12 : 0));
+      const moveSpeed =
+        this.type.speed *
+        this.frostFactor *
+        (1 + pressureBoost * 0.38 + (this.typeName === "striker" ? 0.12 : 0));
       desired.normalize().multiplyScalar(moveSpeed * dt);
       const previous = this.group.position.clone();
       const next = this.group.position.clone().add(desired);
@@ -1362,6 +1380,12 @@ class Enemy {
     }
   }
 
+  applyFrost(slowFactor = 0.5, duration = 0.5) {
+    this.frostFactor = Math.min(this.frostFactor, slowFactor);
+    this.frostTimer = Math.max(this.frostTimer, duration);
+    this.hitFlash = Math.max(this.hitFlash, 0.32);
+  }
+
   destroy(scored = false) {
     if (!this.alive) {
       return;
@@ -1485,7 +1509,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-movefix-f";
+    this.debugBuild = "2026-03-14-frost-skill-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -1547,6 +1571,8 @@ class Game {
       lastDamageTime: -10,
       damagePulse: 0,
       stuckTime: 0,
+      avatarYawOffset: 0,
+      avatarYawTarget: 0,
     };
 
     this.applyProgressionBonuses();
@@ -4429,6 +4455,8 @@ class Game {
     this.player.lastDamageTime = -10;
     this.player.damagePulse = 0;
     this.player.stuckTime = 0;
+    this.player.avatarYawOffset = 0;
+    this.player.avatarYawTarget = 0;
     this.damageFeedback.flash = 0;
     this.damageFeedback.direction = 0;
     this.damageFeedback.angle = 0;
@@ -4479,7 +4507,7 @@ class Game {
 
     const aimBlend = this.aimDownSights ? 1 : 0;
     const desiredLocal = new THREE.Vector3(
-      THREE.MathUtils.lerp(CONFIG.thirdPersonShoulder, 0.64, aimBlend),
+      THREE.MathUtils.lerp(CONFIG.thirdPersonShoulder, 0.18, aimBlend),
       THREE.MathUtils.lerp(CONFIG.thirdPersonHeight, 0.16, aimBlend) + this.weaponKick * 0.03,
       THREE.MathUtils.lerp(CONFIG.thirdPersonDistance, 4.4, aimBlend) + this.weaponRecoil * 0.16,
     );
@@ -4532,6 +4560,14 @@ class Game {
         : Math.cos(((reloadAlpha - 0.52) / 0.48) * Math.PI * 0.5)
       : 0;
     const reloadAccent = rifleReloading ? Math.sin(reloadAlpha * Math.PI) : 0;
+
+    this.player.avatarYawOffset = THREE.MathUtils.damp(
+      this.player.avatarYawOffset,
+      this.player.avatarYawTarget,
+      this.aimDownSights ? 10 : 8,
+      dt,
+    );
+    this.playerAvatar.rotation.y = this.player.avatarYawOffset;
 
     this.playerBodyPivot.position.y = THREE.MathUtils.damp(this.playerBodyPivot.position.y, bob, 10, dt);
     this.playerBodyPivot.rotation.z = THREE.MathUtils.damp(
@@ -5145,6 +5181,107 @@ class Game {
     });
   }
 
+  spawnIceSigilField(position, weapon) {
+    const group = new THREE.Group();
+    group.position.copy(position);
+
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(weapon.fieldRadius * 0.86, weapon.fieldRadius * 0.92, 0.08, 40),
+      new THREE.MeshStandardMaterial({
+        color: 0xcff6ff,
+        emissive: weapon.tracerColor,
+        emissiveIntensity: 0.34,
+        roughness: 0.16,
+        metalness: 0.04,
+        transparent: true,
+        opacity: 0.78,
+      }),
+    );
+    disc.position.y = 0.04;
+    group.add(disc);
+
+    const ringA = new THREE.Mesh(
+      new THREE.TorusGeometry(weapon.fieldRadius, 0.08, 10, 42),
+      new THREE.MeshBasicMaterial({
+        color: weapon.tracerColor,
+        transparent: true,
+        opacity: 0.72,
+      }),
+    );
+    ringA.rotation.x = Math.PI / 2;
+    ringA.position.y = 0.1;
+    group.add(ringA);
+
+    const ringB = new THREE.Mesh(
+      new THREE.TorusGeometry(weapon.fieldRadius * 0.58, 0.05, 10, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.54,
+      }),
+    );
+    ringB.rotation.x = Math.PI / 2;
+    ringB.position.y = 0.12;
+    group.add(ringB);
+
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: this.glowTextures.cyan,
+        color: weapon.tracerColor,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    glow.position.y = 0.24;
+    glow.scale.set(weapon.fieldRadius * 2.8, weapon.fieldRadius * 2.8, 1);
+    group.add(glow);
+
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (Math.PI * 2 * i) / 6;
+      const shard = new THREE.Mesh(
+        new THREE.OctahedronGeometry(rand(0.18, 0.34), 0),
+        new THREE.MeshStandardMaterial({
+          color: 0xf2fbff,
+          emissive: weapon.aimTracerColor,
+          emissiveIntensity: 0.48,
+          roughness: 0.12,
+          metalness: 0.08,
+          transparent: true,
+          opacity: 0.92,
+        }),
+      );
+      shard.position.set(
+        Math.cos(angle) * weapon.fieldRadius * 0.72,
+        rand(0.22, 0.46),
+        Math.sin(angle) * weapon.fieldRadius * 0.72,
+      );
+      shard.rotation.set(rand(0, Math.PI), rand(0, Math.PI), rand(0, Math.PI));
+      group.add(shard);
+    }
+
+    this.scene.add(group);
+    this.effects.push({
+      object: group,
+      velocity: new THREE.Vector3(),
+      gravity: 0,
+      life: weapon.fieldDuration,
+      total: weapon.fieldDuration,
+      field: true,
+      tick: 0,
+      tickInterval: weapon.fieldTick,
+      radius: weapon.fieldRadius,
+      damage: weapon.fieldDamage * this.damageMultiplier,
+      slowFactor: weapon.fieldSlow,
+      slowDuration: weapon.fieldSlowDuration,
+      disc,
+      ringA,
+      ringB,
+      glow,
+    });
+  }
+
   damageEnemiesInRadius(position, radius, damage, ignoreEnemy = null) {
     let hitCount = 0;
     for (const enemy of [...this.enemies]) {
@@ -5505,7 +5642,26 @@ class Game {
       shotDirection.normalize();
     }
 
-    if (weapon.explosive) {
+    if (weapon.field) {
+      const fieldPoint = hitPoint.clone();
+      fieldPoint.y = this.getGroundHeightAt(
+        fieldPoint.clone(),
+        Math.max(this.playerObject.position.y, fieldPoint.y + CONFIG.playerHeight),
+      ) - CONFIG.playerHeight + 0.06;
+
+      this.spawnTracer(
+        muzzleWorld,
+        fieldPoint,
+        this.aimDownSights ? weapon.aimTracerColor : weapon.tracerColor,
+      );
+      this.spawnMagicBurst(fieldPoint, weapon.tracerColor, 1.1);
+      this.spawnIceSigilField(fieldPoint, weapon);
+
+      if (hitEnemy) {
+        hitEnemy.takeDamage(weapon.damage * this.damageMultiplier, fieldPoint, false);
+        this.hitmarkerTimer = 0.14;
+      }
+    } else if (weapon.explosive) {
       this.spawnTracer(
         muzzleWorld,
         hitPoint,
@@ -5645,6 +5801,13 @@ class Game {
     desired.addScaledVector(right, input.x);
     if (desired.lengthSq() > 1) {
       desired.normalize();
+    }
+
+    if (input.lengthSq() > 0.02) {
+      const moveAngle = Math.atan2(input.x, input.y);
+      this.player.avatarYawTarget = this.aimDownSights ? moveAngle * 0.4 : moveAngle * 0.82;
+    } else {
+      this.player.avatarYawTarget = 0;
     }
 
     const wantsSprint =
@@ -5938,6 +6101,33 @@ class Game {
       const effect = this.effects[i];
       effect.life -= dt;
 
+      if (effect.field) {
+        effect.tick -= dt;
+        if (effect.tick <= 0) {
+          effect.tick += effect.tickInterval;
+          for (const enemy of [...this.enemies]) {
+            if (!enemy.alive) {
+              continue;
+            }
+            const distance = enemy.group.position.distanceTo(effect.object.position);
+            if (distance > effect.radius + enemy.radius * 0.45) {
+              continue;
+            }
+            const center = enemy.group.position.clone().add(new THREE.Vector3(0, enemy.type.eyeHeight * 0.42, 0));
+            const falloff = 1 - clamp(distance / Math.max(effect.radius, 0.001), 0, 1) * 0.4;
+            enemy.applyFrost(effect.slowFactor, effect.slowDuration);
+            enemy.takeDamage(effect.damage * Math.max(0.5, falloff), center, false);
+          }
+        }
+
+        const elapsed = effect.total - effect.life;
+        effect.object.rotation.y += dt * 0.7;
+        effect.ringA.rotation.z += dt * 1.4;
+        effect.ringB.rotation.z -= dt * 1.9;
+        effect.glow.material.opacity = (0.2 + Math.sin(elapsed * 6) * 0.06) * Math.max(effect.life / effect.total, 0.35);
+        effect.disc.material.opacity = 0.46 + Math.sin(elapsed * 5.2) * 0.08;
+      }
+
       if (effect.velocity.lengthSq() > 0) {
         effect.velocity.y -= effect.gravity * dt;
         effect.object.position.addScaledVector(effect.velocity, dt);
@@ -6155,7 +6345,15 @@ class Game {
     ui.weaponLabel.textContent = this.getActiveWeapon().label;
     ui.ammo.textContent = String(this.getActiveWeaponState().ammo);
     ui.ammoMax.textContent = String(this.getActiveWeapon().magSize);
-    ui.reloadState.textContent = this.reloadTimer > 0 ? "RELOADING" : "READY";
+    ui.weaponSlotRifle.textContent = "1 ICE SIGIL";
+    ui.weaponSlotLance.textContent = "2 SHOTGUN";
+    ui.reloadState.textContent = this.reloadTimer > 0
+      ? this.activeWeaponId === "rifle"
+        ? "RECHARGING"
+        : "RELOADING"
+      : this.activeWeaponId === "rifle"
+        ? "SIGIL READY"
+        : "READY";
     ui.combo.textContent = `COMBO x${this.combo}`;
     ui.weaponSlotRifle.classList.toggle("active", this.activeWeaponId === "rifle");
     ui.weaponSlotLance.classList.toggle("active", this.activeWeaponId === "lance");
