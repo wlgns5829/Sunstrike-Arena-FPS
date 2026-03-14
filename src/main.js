@@ -99,6 +99,34 @@ const ENEMY_TYPES = {
     critColor: 0x3b2716,
     melee: true,
   },
+  glider: {
+    label: "Mooncap Wispwing",
+    health: 84,
+    speed: 6.4,
+    radius: 0.62,
+    hoverHeight: 2.35,
+    eyeHeight: 2.34,
+    preferredRange: 10.5,
+    retreatRange: 4.8,
+    fireInterval: 0.94,
+    projectileSpeed: 17,
+    projectileCount: 1,
+    spread: 0.04,
+    damage: 10,
+    score: 160,
+    cores: 4,
+    scale: 0.86,
+    skinColor: 0xe7efff,
+    shellColor: 0x8f8cff,
+    clothColor: 0x8f8cff,
+    armorColor: 0x605ce7,
+    trimColor: 0xcdf7ff,
+    coreColor: 0x9fd7ff,
+    weaponColor: 0x4b4b8d,
+    critColor: 0x1d2146,
+    magic: true,
+    flying: true,
+  },
   boss: {
     label: "Sunspore Archmage",
     health: 1280,
@@ -1155,6 +1183,47 @@ class Enemy {
       this.rightLegPivot,
     );
 
+    if (this.type.flying) {
+      const wingMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe4f7ff,
+        emissive: coreColor,
+        emissiveIntensity: 0.2,
+        roughness: 0.18,
+        metalness: 0.02,
+        transparent: true,
+        opacity: 0.76,
+        side: THREE.DoubleSide,
+      });
+      this.leftWingPivot = new THREE.Group();
+      this.leftWingPivot.position.set(0.38 * scale, 1.34 * scale, -0.02 * scale);
+      this.rightWingPivot = new THREE.Group();
+      this.rightWingPivot.position.set(-0.38 * scale, 1.34 * scale, -0.02 * scale);
+      this.leftWing = new THREE.Mesh(new THREE.SphereGeometry(0.44 * scale, 14, 12), wingMaterial);
+      this.leftWing.scale.set(1.6, 0.16, 0.92);
+      this.leftWing.rotation.z = 0.28;
+      this.leftWing.position.set(0.42 * scale, 0.02 * scale, 0);
+      this.rightWing = this.leftWing.clone();
+      this.rightWing.rotation.z = -0.28;
+      this.rightWing.position.x *= -1;
+      this.leftWingPivot.add(this.leftWing);
+      this.rightWingPivot.add(this.rightWing);
+      this.bodyPivot.add(this.leftWingPivot, this.rightWingPivot);
+
+      this.tailGlow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this.game.glowTextures.cyan,
+          color: coreColor,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          opacity: 0.62,
+        }),
+      );
+      this.tailGlow.scale.setScalar(0.72 * scale);
+      this.tailGlow.position.set(0, 1.08 * scale, 0.42 * scale);
+      this.bodyPivot.add(this.tailGlow);
+    }
+
     if (this.type.boss) {
       this.robe = new THREE.Mesh(
         new THREE.CylinderGeometry(0.98 * scale, 0.62 * scale, 1.72 * scale, 16),
@@ -1388,11 +1457,13 @@ class Enemy {
 
     this.group.lookAt(playerPosition.x, this.type.eyeHeight * 0.72, playerPosition.z);
 
-    const gaitSpeed = this.type.boss ? 3.2 : 8.8;
+    const gaitSpeed = this.type.boss ? 3.2 : this.type.flying ? 6.4 : 8.8;
     const gait = this.hoverTime * gaitSpeed;
     const legSwing = Math.sin(gait) * 0.58 * this.moveBlend;
     const armSwing = Math.sin(gait + Math.PI) * 0.42 * this.moveBlend;
-    const bob = Math.abs(Math.sin(gait * 0.5)) * 0.08 * this.moveBlend;
+    const bob = this.type.flying
+      ? 0.1 + Math.sin(gait * 0.72) * 0.12 + this.moveBlend * 0.04
+      : Math.abs(Math.sin(gait * 0.5)) * 0.08 * this.moveBlend;
     const attackBlend = clamp(this.recoil, 0, 1);
 
     this.bodyPivot.position.y = this.type.hoverHeight + bob;
@@ -1423,6 +1494,24 @@ class Enemy {
       1.04 + this.hitFlash * 0.03,
       0.9 + this.hitFlash * 0.03,
     );
+
+    if (this.type.flying) {
+      const flap = Math.sin(this.hoverTime * 18) * 0.72 + this.moveBlend * 0.2;
+      this.leftWingPivot.rotation.z = 0.24 + flap * 0.24;
+      this.rightWingPivot.rotation.z = -0.24 - flap * 0.24;
+      this.leftWingPivot.rotation.y = 0.16 + Math.cos(this.hoverTime * 4.2) * 0.06;
+      this.rightWingPivot.rotation.y = -0.16 - Math.cos(this.hoverTime * 4.2) * 0.06;
+      this.leftLegPivot.rotation.x = -0.4 + Math.sin(this.hoverTime * 3.6) * 0.08;
+      this.rightLegPivot.rotation.x = -0.4 - Math.sin(this.hoverTime * 3.6) * 0.08;
+      this.leftArmPivot.rotation.x = -0.28 + Math.sin(this.hoverTime * 3.4) * 0.18;
+      this.rightArmPivot.rotation.x = -0.42 - attackBlend * 0.2 + Math.cos(this.hoverTime * 3.1) * 0.14;
+      this.leftArmPivot.rotation.z = 0.24;
+      this.rightArmPivot.rotation.z = -0.24;
+      if (this.tailGlow) {
+        this.tailGlow.material.opacity = 0.44 + Math.sin(this.hoverTime * 6.2) * 0.12 + attackBlend * 0.16;
+        this.tailGlow.scale.setScalar((0.68 + Math.sin(this.hoverTime * 5.2) * 0.04) * this.type.scale);
+      }
+    }
 
     if (this.robe) {
       this.robe.rotation.y += dt * 0.2;
@@ -4810,7 +4899,8 @@ class Game {
     }
 
     const resolvedLocal = pitchObject.worldToLocal(resolvedWorld.clone());
-    const smooth = 1 - Math.exp(-dt * 12);
+    const movingCloser = resolvedLocal.z < this.camera.position.z;
+    const smooth = 1 - Math.exp(-dt * (movingCloser ? 14 : 7));
     this.camera.position.lerp(resolvedLocal, smooth);
   }
 
@@ -5282,6 +5372,7 @@ class Game {
     const totalEnemies = isBossWave ? Math.min(6 + this.wave, 14) : Math.min(8 + this.wave * 2, 22);
     const bruiserCount = Math.max(0, Math.floor(this.wave / 2));
     const strikerCount = Math.max(1, Math.floor((this.wave + 1) / 2));
+    const gliderCount = this.wave >= 2 ? Math.min(isBossWave ? 2 : 3, Math.floor((this.wave + 1) / 3)) : 0;
     const roster = [];
 
     if (isBossWave) {
@@ -5293,6 +5384,9 @@ class Game {
     }
     for (let i = 0; i < strikerCount; i += 1) {
       roster.push("striker");
+    }
+    for (let i = 0; i < gliderCount; i += 1) {
+      roster.push("glider");
     }
     while (roster.length < totalEnemies + (isBossWave ? 2 : 0)) {
       roster.push("skirmisher");
@@ -5329,8 +5423,10 @@ class Game {
       ui.objective.textContent = `WAVE ${this.wave}. Mushroom critters are rushing the lanes. Hold the center and crush the melee swarm.`;
       ui.statusNote.textContent =
         this.wave >= 4
-          ? "Heavy pomcaps are joining the push. Thin them with rifle fire and grenades before the front line reaches you."
-          : "Zipcaps bounce faster than the rest. Keep your aim centered and blast them before they flank.";
+          ? "Heavy pomcaps and wispwings are joining the push. Burn the flyers first so high ground never becomes safe."
+          : gliderCount > 0
+            ? "Wispwings are airborne now. Keep moving on the ramps and swat the flying casters before they pressure your flank."
+            : "Zipcaps bounce faster than the rest. Keep your aim centered and blast them before they flank.";
     }
   }
 
@@ -6342,6 +6438,7 @@ class Game {
 
   updateMovement(dt) {
     const currentPosition = this.playerObject.position.clone();
+    const currentGroundOffset = Math.max(0, currentPosition.y - CONFIG.playerHeight);
     const inputX =
       ((this.keys.KeyD || this.keys.ArrowRight) ? 1 : 0) -
       ((this.keys.KeyA || this.keys.ArrowLeft) ? 1 : 0) +
@@ -6419,11 +6516,13 @@ class Game {
       0,
       this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y)) - CONFIG.playerHeight,
     );
+    const upwardSurfaceDelta = Math.max(0, allowedTopHeight - currentGroundOffset);
     this.resolveCircleCollisions(next, CONFIG.playerRadius, null, allowedTopHeight);
     const resolvedHorizontal = new THREE.Vector2(next.x - currentPosition.x, next.z - currentPosition.z);
     const blockedByCollision =
       !vaultTarget &&
       input.lengthSq() > 0.02 &&
+      upwardSurfaceDelta < 0.18 &&
       proposedHorizontal.lengthSq() > 0.00002 &&
       resolvedHorizontal.lengthSq() < proposedHorizontal.lengthSq() * 0.1;
 
@@ -6450,7 +6549,14 @@ class Game {
     }
 
     const groundY = this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y));
-    if (next.y <= groundY + 0.08) {
+    const climbDelta = groundY - currentPosition.y;
+    if (climbDelta > 0.02 && climbDelta <= CONFIG.stepAssistHeight + 0.34 && this.player.velocity.y <= 1.2) {
+      const climbSmooth = 1 - Math.exp(-dt * 18);
+      const lift = Math.max(climbDelta * climbSmooth, 8.4 * dt);
+      next.y = Math.min(groundY, currentPosition.y + lift);
+      this.player.velocity.y = Math.max(0, this.player.velocity.y);
+      this.player.onGround = true;
+    } else if (next.y <= groundY + 0.08) {
       next.y = groundY;
       this.player.velocity.y = 0;
       this.player.onGround = true;
@@ -6874,9 +6980,17 @@ class Game {
     for (const enemy of this.enemies) {
       const x = center + enemy.group.position.x * scale;
       const y = center + enemy.group.position.z * scale;
-      ctx.fillStyle = enemy.type.boss ? "#ffe08f" : enemy.typeName === "striker" ? "#65ffbe" : enemy.typeName === "bruiser" ? "#7efce4" : "#a7ecff";
+      ctx.fillStyle = enemy.type.boss
+        ? "#ffe08f"
+        : enemy.typeName === "glider"
+          ? "#d5b6ff"
+          : enemy.typeName === "striker"
+            ? "#65ffbe"
+            : enemy.typeName === "bruiser"
+              ? "#7efce4"
+              : "#a7ecff";
       ctx.beginPath();
-      ctx.arc(x, y, enemy.type.boss ? 7 : enemy.typeName === "bruiser" ? 4.6 : 3.4, 0, Math.PI * 2);
+      ctx.arc(x, y, enemy.type.boss ? 7 : enemy.typeName === "bruiser" ? 4.6 : enemy.typeName === "glider" ? 4.2 : 3.4, 0, Math.PI * 2);
       ctx.fill();
     }
 
