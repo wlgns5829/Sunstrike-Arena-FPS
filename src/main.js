@@ -245,6 +245,7 @@ const ui = {
   mobileReload: document.querySelector("#mobile-reload"),
   mobileSwap: document.querySelector("#mobile-swap"),
   mobileGrenade: document.querySelector("#mobile-grenade"),
+  debugHud: document.querySelector("#debug-hud"),
 };
 
 function clamp(value, min, max) {
@@ -1411,6 +1412,7 @@ class Game {
       alpha: false,
       powerPreference: "high-performance",
     });
+    this.canvas.tabIndex = 0;
     this.renderer.setPixelRatio(this.renderPixelRatio);
     this.renderer.setSize(viewportWidth, viewportHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1483,7 +1485,18 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
+    this.debugBuild = "2026-03-14-movefix-d";
+    this.debugInfo = {
+      inputX: 0,
+      inputZ: 0,
+      desiredX: 0,
+      desiredZ: 0,
+      blocked: false,
+      fallback: false,
+      groundY: CONFIG.playerHeight,
+    };
     this.menuOrbit = 0;
+    this.viewportMode = viewportWidth >= viewportHeight ? "landscape" : "portrait";
     this.time = 0;
     this.started = false;
     this.gameOver = false;
@@ -1738,6 +1751,36 @@ class Game {
     this.mobileInput.look.dy = 0;
   }
 
+  resetMobileInteractionState(recenterView = false) {
+    if (ui.movePad && this.mobileInput.move.id !== null && ui.movePad.hasPointerCapture?.(this.mobileInput.move.id)) {
+      ui.movePad.releasePointerCapture(this.mobileInput.move.id);
+    }
+    if (ui.lookPad && this.mobileInput.look.id !== null && ui.lookPad.hasPointerCapture?.(this.mobileInput.look.id)) {
+      ui.lookPad.releasePointerCapture(this.mobileInput.look.id);
+    }
+
+    this.mobileInput.move.active = false;
+    this.mobileInput.move.id = null;
+    this.mobileInput.move.x = 0;
+    this.mobileInput.move.y = 0;
+    this.mobileInput.jumpQueued = false;
+    this.resetTouchLookState();
+    this.mouseDown = false;
+    this.aimDownSights = false;
+
+    if (ui.moveKnob) {
+      ui.moveKnob.style.transform = "translate(-50%, -50%)";
+    }
+
+    if (recenterView) {
+      this.lookAngles.pitch = 0;
+      this.viewRecoil.pitch = 0;
+      this.viewRecoil.yaw = 0;
+      this.viewRecoil.roll = 0;
+      this.applyViewRotation();
+    }
+  }
+
   syncLookAnglesFromView() {
     this.lookAngles.yaw = wrapAngle(this.playerObject.rotation.y + this.viewRecoil.yaw);
     const pitchObject = this.cameraPitchPivot || this.camera.parent || this.camera;
@@ -1753,13 +1796,12 @@ class Game {
 
   startOrResume() {
     this.audio.unlock();
-    this.mouseDown = false;
-    this.aimDownSights = false;
-    this.resetTouchLookState();
+    this.resetMobileInteractionState();
     if (!this.started || this.gameOver) {
       this.resetRun();
     }
     this.snapThirdPersonCamera();
+    this.canvas.focus({ preventScroll: true });
 
     if (this.isTouchDevice) {
       ui.overlay.classList.add("hidden");
@@ -1772,9 +1814,7 @@ class Game {
   }
 
   pauseGame() {
-    this.mouseDown = false;
-    this.aimDownSights = false;
-    this.resetTouchLookState();
+    this.resetMobileInteractionState();
 
     if (this.isTouchDevice) {
       if (!this.started) {
@@ -1950,7 +1990,7 @@ class Game {
       this.lookAngles.pitch = clamp(this.lookAngles.pitch - event.movementY * 0.00165, -1.08, 1.08);
     });
 
-    document.addEventListener("keydown", (event) => {
+    window.addEventListener("keydown", (event) => {
       this.keys[event.code] = true;
       if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
         event.preventDefault();
@@ -1978,11 +2018,16 @@ class Game {
       }
     });
 
-    document.addEventListener("keyup", (event) => {
+    window.addEventListener("keyup", (event) => {
       this.keys[event.code] = false;
       if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(event.code)) {
         event.preventDefault();
       }
+    });
+
+    window.addEventListener("blur", () => {
+      this.keys = {};
+      this.resetMobileInteractionState();
     });
 
     document.addEventListener("mousedown", (event) => {
@@ -2063,6 +2108,9 @@ class Game {
   }
 
   setOverlay(title, subtitle, note, buttonLabel) {
+    if (this.isTouchDevice) {
+      this.resetMobileInteractionState();
+    }
     ui.overlayTitle.textContent = title;
     ui.overlaySubtitle.textContent = subtitle;
     ui.overlayNote.textContent = note;
@@ -2081,6 +2129,13 @@ class Game {
 
   onResize() {
     const { width, height } = this.updateViewportMetrics();
+    const nextViewportMode = width >= height ? "landscape" : "portrait";
+    if (this.isTouchDevice && nextViewportMode !== this.viewportMode) {
+      this.viewportMode = nextViewportMode;
+      this.resetMobileInteractionState(true);
+    } else {
+      this.viewportMode = nextViewportMode;
+    }
     this.renderPixelRatio = Math.min(window.devicePixelRatio || 1, this.lowSpecMode ? 1.1 : 1.75);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -2645,6 +2700,7 @@ class Game {
     this.addPlanterBox(18, -22, 2.2, 5.8);
     this.addPlanterBox(-18, 22, 2.2, 5.8);
     this.addPlanterBox(18, 22, 2.2, 5.8);
+    this.addPeripheralArchitecture();
 
     this.addFloorStripe(0, 0, 22, 0.9, 0x86f2ff);
     this.addFloorStripe(0, 0, 0.9, 22, 0x86f2ff);
@@ -2672,6 +2728,9 @@ class Game {
       { x: 7.8, z: -22.2, w: 1.6, d: 3.2, h: 1.44, accent: 0x72fff0 },
     ];
     flankNodes.forEach((node) => this.addCoverNode(node.x, node.z, node.w, node.d, node.h, node.accent));
+
+    this.addTraversalRoutes();
+    this.addExpandedOuterLanes();
   }
 
   addOpenCoverBlock(x, z, w, d, h, accent) {
@@ -4254,11 +4313,10 @@ class Game {
     this.effects.length = 0;
 
     this.player.velocity.set(0, 0, 0);
-    const spawnPoint = new THREE.Vector3(0, CONFIG.playerHeight, 24);
-    spawnPoint.y = this.getGroundHeightAt(spawnPoint, CONFIG.playerHeight);
-    this.playerObject.position.copy(spawnPoint);
+    const spawnData = this.findSafePlayerSpawn();
+    this.playerObject.position.copy(spawnData.position);
     this.resolveCircleCollisions(this.playerObject.position, CONFIG.playerRadius);
-    this.lookAngles.yaw = 0;
+    this.lookAngles.yaw = spawnData.yaw;
     this.lookAngles.pitch = 0;
     this.resetTouchLookState();
     this.viewRecoil.pitch = 0;
@@ -5473,6 +5531,7 @@ class Game {
   }
 
   updateMovement(dt) {
+    const currentPosition = this.playerObject.position.clone();
     const inputX =
       ((this.keys.KeyD || this.keys.ArrowRight) ? 1 : 0) -
       ((this.keys.KeyA || this.keys.ArrowLeft) ? 1 : 0) +
@@ -5487,14 +5546,9 @@ class Game {
       input.normalize();
     }
 
-    const forward = this.camera.getWorldDirection(new THREE.Vector3());
-    forward.y = 0;
-    if (forward.lengthSq() < 0.0001) {
-      forward.set(0, 0, -1);
-    } else {
-      forward.normalize();
-    }
-    const right = new THREE.Vector3().crossVectors(forward, UP).normalize();
+    const yaw = this.playerObject.rotation.y;
+    const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
     const desired = new THREE.Vector3();
     desired.addScaledVector(forward, input.y);
     desired.addScaledVector(right, input.x);
@@ -5538,11 +5592,40 @@ class Game {
     const next = vaultTarget
       ? vaultTarget
       : this.playerObject.position.clone().addScaledVector(this.player.velocity, dt);
+    const proposedHorizontal = new THREE.Vector2(next.x - currentPosition.x, next.z - currentPosition.z);
     const allowedTopHeight = Math.max(
       0,
       this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y)) - CONFIG.playerHeight,
     );
     this.resolveCircleCollisions(next, CONFIG.playerRadius, null, allowedTopHeight);
+    const resolvedHorizontal = new THREE.Vector2(next.x - currentPosition.x, next.z - currentPosition.z);
+    const blockedByCollision =
+      !vaultTarget &&
+      input.lengthSq() > 0.02 &&
+      proposedHorizontal.lengthSq() > 0.00002 &&
+      resolvedHorizontal.lengthSq() < proposedHorizontal.lengthSq() * 0.1;
+
+    let usedFallback = false;
+    if (blockedByCollision) {
+      const recovery = this.findNearbyRecoveryPosition(currentPosition, desired);
+      if (recovery) {
+        next.copy(recovery);
+        this.player.velocity.x = desired.x * 0.52;
+        this.player.velocity.z = desired.z * 0.52;
+        usedFallback = true;
+      } else {
+        const fallback = currentPosition.clone().addScaledVector(desired, dt * 0.58);
+        const fallbackGround = this.getGroundHeightAt(fallback, Math.max(currentPosition.y, fallback.y));
+        fallback.y = fallbackGround;
+        const limit = CONFIG.arenaLimit - CONFIG.playerRadius;
+        fallback.x = clamp(fallback.x, -limit, limit);
+        fallback.z = clamp(fallback.z, -limit, limit);
+        next.copy(fallback);
+        this.player.velocity.x = desired.x * 0.58;
+        this.player.velocity.z = desired.z * 0.58;
+        usedFallback = true;
+      }
+    }
 
     const groundY = this.getGroundHeightAt(next, Math.max(this.playerObject.position.y, next.y));
     if (next.y <= groundY + 0.08) {
@@ -5559,6 +5642,13 @@ class Game {
     this.playerObject.position.copy(next);
     const horizontalSpeed = new THREE.Vector2(this.player.velocity.x, this.player.velocity.z).length() / CONFIG.sprintSpeed;
     this.player.moveBlend = THREE.MathUtils.damp(this.player.moveBlend, horizontalSpeed, 10, dt);
+    this.debugInfo.inputX = input.x;
+    this.debugInfo.inputZ = input.y;
+    this.debugInfo.desiredX = desired.x;
+    this.debugInfo.desiredZ = desired.z;
+    this.debugInfo.blocked = blockedByCollision;
+    this.debugInfo.fallback = usedFallback;
+    this.debugInfo.groundY = groundY;
   }
 
   updateTouchLook() {
@@ -5932,6 +6022,29 @@ class Game {
     ui.minimapLabel.textContent = this.bossEnemy ? "Boss Contact" : this.enemies.length > 0 ? "Threat Live" : "Sweep";
   }
 
+  updateDebugHud() {
+    if (!ui.debugHud || this.isTouchDevice) {
+      return;
+    }
+
+    const keysDown = ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"]
+      .filter((code) => this.keys[code])
+      .map((code) => code.replace("Key", "").replace("Left", ""))
+      .join(" ") || "-";
+
+    ui.debugHud.textContent = [
+      `BUILD ${this.debugBuild}`,
+      `active:${this.isGameplayActive()} started:${this.started} locked:${this.controls.isLocked} overlayHidden:${ui.overlay.classList.contains("hidden")}`,
+      `pos x:${this.playerObject.position.x.toFixed(2)} y:${this.playerObject.position.y.toFixed(2)} z:${this.playerObject.position.z.toFixed(2)}`,
+      `vel x:${this.player.velocity.x.toFixed(2)} y:${this.player.velocity.y.toFixed(2)} z:${this.player.velocity.z.toFixed(2)}`,
+      `input x:${this.debugInfo.inputX.toFixed(2)} z:${this.debugInfo.inputZ.toFixed(2)} keys:${keysDown}`,
+      `desired x:${this.debugInfo.desiredX.toFixed(2)} z:${this.debugInfo.desiredZ.toFixed(2)}`,
+      `blocked:${this.debugInfo.blocked} fallback:${this.debugInfo.fallback} ground:${this.debugInfo.groundY.toFixed(2)}`,
+      `look yaw:${this.lookAngles.yaw.toFixed(2)} pitch:${this.lookAngles.pitch.toFixed(2)} weapon:${this.activeWeaponId}`,
+      `map: open-festival-v3`,
+    ].join("\n");
+  }
+
   updateUI(force = false) {
     const healthRatio = clamp(this.player.health / this.player.maxHealth, 0, 1);
     const shieldRatio = clamp(this.player.shield / this.player.maxShield, 0, 1);
@@ -5995,6 +6108,7 @@ class Game {
     if (force) {
       ui.crosshair.style.setProperty("--spread", `${spread}px`);
     }
+    this.updateDebugHud();
   }
 
   updateGame(dt) {

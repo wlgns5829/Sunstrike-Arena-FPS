@@ -914,6 +914,29 @@ body.touch-mode #overlay:not(.hidden) ~ .mobile-controls {
   box-shadow: 0 0 18px rgba(255, 161, 108, 0.34);
 }
 
+.debug-hud {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 8;
+  min-width: 260px;
+  max-width: min(420px, calc(100vw - 32px));
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(5, 16, 28, 0.84);
+  border: 1px solid rgba(140, 227, 255, 0.22);
+  color: #dffbff;
+  font: 12px/1.45 "IBM Plex Mono", "Cascadia Code", Consolas, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+}
+
+body.touch-mode .debug-hud {
+  display: none;
+}
+
 .mobile-controls {
   display: none;
 }
@@ -1181,16 +1204,24 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
 @media (hover: none) and (pointer: coarse) {
   .overlay {
     align-items: stretch;
-    background: linear-gradient(180deg, rgba(3, 8, 15, 0.88), rgba(3, 8, 15, 0.96));
-    backdrop-filter: blur(14px);
+    padding: 0;
+    background: linear-gradient(180deg, rgba(4, 9, 16, 0.98), rgba(4, 9, 16, 1));
+    backdrop-filter: blur(18px);
   }
 
   .overlay-panel {
     width: 100%;
-    max-width: 920px;
-    max-height: 100%;
-    padding: 18px;
-    border-radius: 22px;
+    max-width: none;
+    min-height: var(--app-height);
+    max-height: var(--app-height);
+    padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    background:
+      linear-gradient(180deg, rgba(8, 18, 31, 0.985), rgba(6, 13, 24, 0.985)),
+      radial-gradient(circle at top right, rgba(134, 242, 255, 0.12), transparent 34%);
   }
 
   .overlay-actions {
@@ -1218,6 +1249,18 @@ body.touch-mode #overlay.hidden ~ .mobile-controls {
 
   .mobile-controls {
     padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  .overlay-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .overlay-actions {
+    margin-top: auto;
   }
 }
 
