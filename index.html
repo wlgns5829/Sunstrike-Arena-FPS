@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sunstrike Arena</title>
+  <meta
+    name="description"
+    content="three.js bright arena FPS prototype with mobile controls, boss waves, weapon swap, minimap, and upgrades."
+  />
+  <link rel="stylesheet" href="./src/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="sky-glow sky-glow-a"></div>
+  <div class="sky-glow sky-glow-b"></div>
+
+  <div id="overlay" class="overlay">
+    <div class="overlay-panel">
+      <p class="eyebrow">Bright Arena FPS / three.js</p>
+      <h1 id="overlay-title">SUNSTRIKE ARENA</h1>
+      <p id="overlay-subtitle" class="overlay-subtitle">
+        밝은 리조트형 전장에서 웨이브와 보스를 돌파하는 하이템포 FPS 프로토타입입니다.
+      </p>
+
+      <div class="hero-grid">
+        <div class="hero-card">
+          <span class="hero-label">Aim</span>
+          <strong>Accurate Center Hitscan</strong>
+          <p>탄 판정은 항상 화면 중앙 크로스헤어 기준으로 계산됩니다.</p>
+        </div>
+        <div class="hero-card">
+          <span class="hero-label">Combat</span>
+          <strong>Weapon Swap + Boss Wave</strong>
+          <p>라이플과 랜스를 교체하고, 중간마다 보스 웨이브를 상대할 수 있습니다.</p>
+        </div>
+        <div class="hero-card">
+          <span class="hero-label">Loop</span>
+          <strong>Saved Upgrade Progress</strong>
+          <p>코어를 모아 대미지, 장전, 실드, 기동 업그레이드를 영구 저장합니다.</p>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <div class="control-chip">WASD Move</div>
+        <div class="control-chip">Shift Sprint</div>
+        <div class="control-chip">Space Jump</div>
+        <div class="control-chip">Left Click Fire</div>
+        <div class="control-chip">Right Click ADS</div>
+        <div class="control-chip">Q / 1 / 2 Swap</div>
+        <div class="control-chip">R Reload</div>
+      </div>
+
+      <div class="overlay-actions">
+        <button id="start-button" class="primary-button">Mission Start</button>
+        <p id="overlay-note" class="overlay-note">
+          PC에서는 마우스 잠금으로, 폰에서는 터치 조이스틱으로 바로 플레이할 수 있습니다.
+        </p>
+      </div>
+
+      <div class="support-grid">
+        <section class="support-card upgrade-panel">
+          <div class="support-head">
+            <div>
+              <p class="eyebrow">Progress</p>
+              <h2>Core Upgrades</h2>
+            </div>
+            <div class="core-bank">
+              <span>CORES</span>
+              <strong id="cores-total">0</strong>
+            </div>
+          </div>
+
+          <div class="upgrade-grid">
+            <button id="upgrade-damage" class="upgrade-card">
+              <span class="upgrade-tag">Damage</span>
+              <strong id="upgrade-damage-level">Lv.0</strong>
+              <small id="upgrade-damage-cost">Cost 4</small>
+            </button>
+            <button id="upgrade-reload" class="upgrade-card">
+              <span class="upgrade-tag">Reload</span>
+              <strong id="upgrade-reload-level">Lv.0</strong>
+              <small id="upgrade-reload-cost">Cost 4</small>
+            </button>
+            <button id="upgrade-shield" class="upgrade-card">
+              <span class="upgrade-tag">Shield</span>
+              <strong id="upgrade-shield-level">Lv.0</strong>
+              <small id="upgrade-shield-cost">Cost 4</small>
+            </button>
+            <button id="upgrade-mobility" class="upgrade-card">
+              <span class="upgrade-tag">Mobility</span>
+              <strong id="upgrade-mobility-level">Lv.0</strong>
+              <small id="upgrade-mobility-cost">Cost 4</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="support-card network-panel">
+          <p class="eyebrow">Phone Play</p>
+          <h2>Open It On Mobile</h2>
+          <p>
+            같은 와이파이에 연결한 뒤 `http://PC-IP:4173` 로 접속하면 폰에서도 열 수 있습니다.
+          </p>
+          <div class="network-list">
+            <div class="network-chip">WSL / old Node compatible server</div>
+            <div class="network-chip">Local network friendly host binding</div>
+            <div class="network-chip">Touch move / look / fire buttons</div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="hud-top">
+      <div class="brand-block">
+        <p class="brand-tag">SUNSTRIKE PROTOCOL</p>
+        <strong>Bright Arena Sweep</strong>
+      </div>
+
+      <div class="hud-top-right">
+        <div class="stat-chip-group">
+          <div class="stat-chip">
+            <span>WAVE</span>
+            <strong id="wave-value">0</strong>
+          </div>
+          <div class="stat-chip">
+            <span>SCORE</span>
+            <strong id="score-value">000000</strong>
+          </div>
+          <div class="stat-chip">
+            <span>BEST</span>
+            <strong id="best-value">000000</strong>
+          </div>
+          <div class="stat-chip">
+            <span>CORES</span>
+            <strong id="hud-cores-value">0</strong>
+          </div>
+          <button id="pause-button" class="pause-chip">PAUSE</button>
+        </div>
+
+        <div class="minimap-card">
+          <div class="minimap-head">
+            <span class="eyebrow">Arena Radar</span>
+            <strong id="minimap-label">Sweep</strong>
+          </div>
+          <canvas id="minimap" class="minimap-canvas" width="200" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="announcer-wrap">
+      <div id="announcer" class="announcer"></div>
+      <div id="objective" class="objective">시작 버튼을 눌러 전장에 투입하세요.</div>
+      <div id="boss-hud" class="boss-hud">
+        <div class="boss-head">
+          <span id="boss-name">AURORA OVERSEER</span>
+          <strong id="boss-health-text">100%</strong>
+        </div>
+        <div class="boss-bar-shell">
+          <div id="boss-bar" class="boss-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="status-panel">
+        <div class="bar-meta">
+          <span>HEALTH</span>
+          <strong id="health-text">100</strong>
+        </div>
+        <div class="bar-shell">
+          <div id="health-bar" class="bar-fill health"></div>
+        </div>
+        <div class="bar-meta">
+          <span>SHIELD</span>
+          <strong id="shield-text">50</strong>
+        </div>
+        <div class="bar-shell">
+          <div id="shield-bar" class="bar-fill shield"></div>
+        </div>
+        <div class="status-foot">
+          <span id="combo-value">COMBO x1</span>
+          <span id="status-note">정확한 중앙 정렬과 좌우 무빙으로 각을 만드세요.</span>
+        </div>
+      </div>
+
+      <div class="ammo-panel">
+        <span id="weapon-label" class="ammo-label">PHOTON RIFLE</span>
+        <div class="ammo-main">
+          <strong id="ammo-value">36</strong>
+          <span>/ <span id="ammo-max-value">36</span></span>
+        </div>
+        <div id="reload-state" class="reload-state">READY</div>
+        <div class="weapon-slots">
+          <div id="weapon-slot-rifle" class="weapon-slot active">1 RIFLE</div>
+          <div id="weapon-slot-lance" class="weapon-slot">2 LANCE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="crosshair" class="crosshair">
+    <span class="cross cross-top"></span>
+    <span class="cross cross-right"></span>
+    <span class="cross cross-bottom"></span>
+    <span class="cross cross-left"></span>
+    <span class="cross-dot"></span>
+  </div>
+
+  <div id="hitmarker" class="hitmarker">
+    <span></span>
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+
+  <div id="damage-vignette" class="damage-vignette"></div>
+
+  <div id="mobile-controls" class="mobile-controls">
+    <div class="mobile-joystick">
+      <div id="move-pad" class="touch-pad move-pad">
+        <span class="touch-label">MOVE</span>
+        <div class="touch-ring"></div>
+        <div id="move-knob" class="touch-knob"></div>
+      </div>
+    </div>
+
+    <div class="mobile-look-actions">
+      <div id="look-pad" class="touch-pad look-pad">
+        <span class="touch-label">LOOK</span>
+      </div>
+      <div class="mobile-button-column">
+        <button id="mobile-fire" class="mobile-button fire">FIRE</button>
+        <button id="mobile-aim" class="mobile-button secondary">ADS</button>
+        <button id="mobile-jump" class="mobile-button utility">JUMP</button>
+        <button id="mobile-reload" class="mobile-button utility">RELOAD</button>
+        <button id="mobile-swap" class="mobile-button utility">SWAP</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
