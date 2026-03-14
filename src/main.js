@@ -9,14 +9,14 @@ const CONFIG = {
   playerHeight: 1.74,
   playerRadius: 0.58,
   gravity: 26,
-  jumpVelocity: 11.4,
+  jumpVelocity: 12.6,
   walkSpeed: 8.4,
   sprintSpeed: 11.8,
   aimSpeed: 6.4,
   bulletRange: 120,
   touchLookSensitivity: 0.0031,
   touchLookDeadzone: 0.12,
-  stepAssistHeight: 1.08,
+  stepAssistHeight: 1.24,
   vaultBoost: 7.2,
   thirdPersonDistance: 6.8,
   thirdPersonHeight: 0.36,
@@ -1651,7 +1651,7 @@ class Game {
       look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-mobile-look-hill-a";
+    this.debugBuild = "2026-03-14-mobile-look-hill-b";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -5016,7 +5016,7 @@ class Game {
   getGroundHeightAt(position, currentEyeY = this.playerObject.position.y) {
     let highestOffset = 0;
     const currentOffset = currentEyeY - CONFIG.playerHeight;
-    const surfaceMargin = 0.08;
+    const surfaceMargin = CONFIG.playerRadius + 0.18;
 
     for (const surface of this.walkSurfaces) {
       if (
@@ -5030,7 +5030,7 @@ class Game {
 
       const stepUp = surface.height - currentOffset;
       const canStepUp = this.player.onGround && stepUp <= CONFIG.stepAssistHeight;
-      const canLandFromAbove = currentEyeY >= CONFIG.playerHeight + surface.height - 0.24 && this.player.velocity.y <= 0.6;
+      const canLandFromAbove = currentEyeY >= CONFIG.playerHeight + surface.height - 0.48 && this.player.velocity.y <= 2.2;
 
       if ((canStepUp || canLandFromAbove) && surface.height > highestOffset) {
         highestOffset = surface.height;
@@ -5084,7 +5084,7 @@ class Game {
       if (obstacle === ignoredVolume) {
         continue;
       }
-      if (allowedTopHeight >= obstacle.topY - 0.04) {
+      if (allowedTopHeight >= obstacle.topY - 0.18) {
         continue;
       }
 
@@ -5137,7 +5137,7 @@ class Game {
       if (obstacle === ignoredVolume) {
         continue;
       }
-      if (allowedTopHeight >= obstacle.topY - 0.04) {
+      if (allowedTopHeight >= obstacle.topY - 0.18) {
         continue;
       }
 
