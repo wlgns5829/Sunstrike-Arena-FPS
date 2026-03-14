@@ -351,7 +351,7 @@ class AudioSystem {
       nextStepTime: 0,
       step: 0,
       stepDuration: 0.25,
-      targetGain: 0.18,
+      targetGain: 0.26,
     };
     this.musicDrone = null;
     this.musicOrchestra = null;
@@ -365,7 +365,7 @@ class AudioSystem {
       }
       this.context = new Ctor();
       this.master = this.context.createGain();
-      this.master.gain.value = 0.56;
+      this.master.gain.value = 0.78;
       this.master.connect(this.context.destination);
 
       this.sfxBus = this.context.createGain();
@@ -870,7 +870,7 @@ class AudioSystem {
     const paused = !state.started || state.gameOver || state.paused;
     const bpm = state.boss ? 126 : state.intensity > 0.72 ? 116 : state.intensity > 0.3 ? 106 : 96;
     const stepDuration = 60 / bpm / 4;
-    const targetGain = paused ? 0.028 : state.boss ? 0.46 : 0.24 + state.intensity * 0.15;
+    const targetGain = paused ? 0.04 : state.boss ? 0.64 : 0.34 + state.intensity * 0.24;
     const targetFilter = paused ? 1500 : state.boss ? 3600 : 2200 + state.intensity * 1400;
 
     this.music.stepDuration = stepDuration;
@@ -883,9 +883,9 @@ class AudioSystem {
     this.musicFilter.frequency.setValueAtTime(this.musicFilter.frequency.value, now);
     this.musicFilter.frequency.linearRampToValueAtTime(targetFilter, now + 0.3);
     if (this.musicEchoSend && this.musicEchoFeedback && this.musicEchoReturn && this.musicEchoDelay && this.musicEchoFilter) {
-      const echoSend = paused ? 0.08 : state.boss ? 0.2 : 0.13 + state.intensity * 0.04;
-      const echoFeedback = paused ? 0.16 : state.boss ? 0.28 : 0.2 + state.intensity * 0.05;
-      const echoReturn = paused ? 0.08 : state.boss ? 0.18 : 0.12 + state.intensity * 0.03;
+      const echoSend = paused ? 0.1 : state.boss ? 0.24 : 0.16 + state.intensity * 0.05;
+      const echoFeedback = paused ? 0.18 : state.boss ? 0.32 : 0.24 + state.intensity * 0.06;
+      const echoReturn = paused ? 0.1 : state.boss ? 0.22 : 0.16 + state.intensity * 0.04;
       const echoDelay = state.boss ? 0.32 : 0.28;
       const echoCutoff = paused ? 1200 : state.boss ? 2100 : 1700 + state.intensity * 500;
       this.musicEchoSend.gain.cancelScheduledValues(now);
@@ -908,8 +908,8 @@ class AudioSystem {
     if (this.musicDrone) {
       const rootProgression = state.boss ? [45, 43, 48, 50] : [45, 43, 50, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const droneBase = paused ? 0.012 : state.boss ? 0.11 : 0.06 + state.intensity * 0.04;
-      const shimmerBase = paused ? 0.008 : state.boss ? 0.04 : 0.018 + state.intensity * 0.018;
+      const droneBase = paused ? 0.018 : state.boss ? 0.16 : 0.09 + state.intensity * 0.06;
+      const shimmerBase = paused ? 0.012 : state.boss ? 0.058 : 0.028 + state.intensity * 0.026;
 
       this.musicDrone.subOscA.frequency.cancelScheduledValues(now);
       this.musicDrone.subOscA.frequency.linearRampToValueAtTime(midiToFrequency(root - 12), now + 0.4);
@@ -937,10 +937,10 @@ class AudioSystem {
     if (this.musicOrchestra) {
       const rootProgression = state.boss ? [50, 48, 46, 53] : [50, 46, 53, 48];
       const root = rootProgression[(state.wave + Math.floor(this.music.step / 4)) % rootProgression.length];
-      const anthemBase = paused ? 0.014 : state.boss ? 0.09 : 0.05 + state.intensity * 0.045;
-      const choirBase = paused ? 0.012 : state.boss ? 0.065 : 0.026 + state.intensity * 0.032;
-      const brassBase = paused ? 0.01 : state.boss ? 0.075 : 0.034 + state.intensity * 0.03;
-      const choirBassBase = paused ? 0.008 : state.boss ? 0.042 : 0.018 + state.intensity * 0.02;
+      const anthemBase = paused ? 0.022 : state.boss ? 0.13 : 0.08 + state.intensity * 0.065;
+      const choirBase = paused ? 0.018 : state.boss ? 0.096 : 0.042 + state.intensity * 0.05;
+      const brassBase = paused ? 0.015 : state.boss ? 0.108 : 0.052 + state.intensity * 0.045;
+      const choirBassBase = paused ? 0.012 : state.boss ? 0.062 : 0.03 + state.intensity * 0.028;
 
       this.musicOrchestra.anthemOscA.frequency.cancelScheduledValues(now);
       this.musicOrchestra.anthemOscA.frequency.linearRampToValueAtTime(midiToFrequency(root), now + 0.42);
@@ -1740,7 +1740,7 @@ class Game {
       look: { active: false, id: null, source: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-mobile-look-hill-b";
+    this.debugBuild = "2026-03-14-wave1-glider-bgm-a";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -5372,7 +5372,7 @@ class Game {
     const totalEnemies = isBossWave ? Math.min(6 + this.wave, 14) : Math.min(8 + this.wave * 2, 22);
     const bruiserCount = Math.max(0, Math.floor(this.wave / 2));
     const strikerCount = Math.max(1, Math.floor((this.wave + 1) / 2));
-    const gliderCount = this.wave >= 2 ? Math.min(isBossWave ? 2 : 3, Math.floor((this.wave + 1) / 3)) : 0;
+    const gliderCount = Math.min(isBossWave ? 2 : 3, Math.max(1, Math.floor((this.wave + 1) / 3)));
     const roster = [];
 
     if (isBossWave) {
