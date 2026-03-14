@@ -1485,7 +1485,7 @@ class Game {
       look: { active: false, id: null, lastX: 0, lastY: 0, dx: 0, dy: 0 },
       jumpQueued: false,
     };
-    this.debugBuild = "2026-03-14-movefix-e";
+    this.debugBuild = "2026-03-14-movefix-f";
     this.debugInfo = {
       inputX: 0,
       inputZ: 0,
@@ -5504,20 +5504,6 @@ class Game {
     } else {
       shotDirection.normalize();
     }
-    const muzzleRay = new THREE.Raycaster(muzzleWorld, shotDirection, 0, weapon.maxRange || CONFIG.bulletRange);
-    const muzzleHits = muzzleRay.intersectObjects(allTargets, false);
-    if (muzzleHits.length > 0) {
-      const muzzleHit = muzzleHits[0];
-      hitPoint = muzzleHit.point.clone();
-      if (muzzleHit.object.userData.enemy) {
-        hitEnemy = muzzleHit.object.userData.enemy;
-        crit = Boolean(muzzleHit.object.userData.crit);
-      } else {
-        hitEnemy = null;
-        crit = false;
-        this.spawnImpact(hitPoint, 0xffffff, 7, 5);
-      }
-    }
 
     if (weapon.explosive) {
       this.spawnTracer(
@@ -5552,11 +5538,9 @@ class Game {
         direction.applyAxisAngle(UP, rand(-spread, spread) * 0.5);
         direction.normalize();
 
-        const pelletAimPoint = baseRaycaster.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
-        const pelletDirection = pelletAimPoint.sub(muzzleWorld).normalize();
-        const pelletRay = new THREE.Raycaster(muzzleWorld, pelletDirection, 0, weapon.maxRange);
+        const pelletRay = new THREE.Raycaster(baseRaycaster.ray.origin, direction, 0, weapon.maxRange);
         const pelletHits = pelletRay.intersectObjects(allTargets, false);
-        let pelletPoint = pelletRay.ray.origin.clone().add(pelletDirection.clone().multiplyScalar(weapon.maxRange));
+        let pelletPoint = pelletRay.ray.origin.clone().add(direction.clone().multiplyScalar(weapon.maxRange));
 
         if (pelletHits.length > 0) {
           const pelletHit = pelletHits[0];
@@ -5648,9 +5632,14 @@ class Game {
       input.normalize();
     }
 
-    const yaw = this.playerObject.rotation.y;
-    const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-    const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.playerObject.quaternion);
+    forward.y = 0;
+    if (forward.lengthSq() < 0.0001) {
+      forward.set(0, 0, -1);
+    } else {
+      forward.normalize();
+    }
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.playerObject.quaternion).normalize();
     const desired = new THREE.Vector3();
     desired.addScaledVector(forward, input.y);
     desired.addScaledVector(right, input.x);
